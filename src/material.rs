@@ -11,7 +11,7 @@ use crate::sampler::Distribution1D;
 use crate::shape::Shape;
 use crate::texture::{ColorTexture, ScalarTexture};
 use crate::vector::*;
-use crate::onb::ONB;
+use crate::onb::Onb;
 
 
 pub const BXDF_REFLECTION: u8 =     0b00000001;
@@ -24,7 +24,7 @@ pub type BXDFType = u8;
 
 fn same_hemisphere(w: &Vec3, wp: &Vec3) -> bool { w.z * wp.z > 0.0 }
 fn abs_cos_theta(w: &Vec3) -> F { w.z.abs() }
-pub trait BXDF {
+pub trait Bxdf {
     fn bxdf_type(&self) -> BXDFType;
     fn scale(&self) -> F { 1.0 }
     fn f(&self, wo: &Vec3, wi: &Vec3) -> Option<Color3>;
@@ -35,10 +35,7 @@ pub trait BXDF {
         let mut wi = Distribution1D::cosine_sample_hemisphere(u);
         if wo.z < 0.0 { wi.z *= -1.0 }
         let pdf = self.pdf(wo, &wi);
-        match self.f(wo, &wi) {
-            Some(col) => Some((col, pdf, wi, self.bxdf_type())),
-            None => None
-        }
+        self.f(wo, &wi).map(|col| (col, pdf, wi, self.bxdf_type()))
     }
     fn rho(&self, n_samples: S, wo: &Vec3, samples: &[Point2]) -> Option<Color3>;
     fn rho_2samples(&self, n_samples: S, samples1: &[Point2], samples2: &[Point2]) -> Option<Color3>;
@@ -55,7 +52,7 @@ impl LambertianReflection {
     }
 }
 
-impl BXDF for LambertianReflection {
+impl Bxdf for LambertianReflection {
     fn bxdf_type(&self) -> BXDFType {
         BXDF_DIFFUSE | BXDF_REFLECTION
     }
@@ -83,7 +80,7 @@ pub struct ScatterResult {
     // material: Rc<'a dyn& (BSDFMaterial + 'a)>,
     // pub materials: Vec<Rc<dyn Material>>,
     pub material: Rc<dyn Material>,
-    pub bxdfs: Vec<Rc<dyn BXDF>>,
+    pub bxdfs: Vec<Rc<dyn Bxdf>>,
     pub wo: Vec3,
     // pub attenuation: Color3,
     // pub pdf_value: F,
@@ -113,7 +110,7 @@ impl Material for Matte {
         
         let r = self.kd.eval(inter);
         // let adjusted_direction = vec3(d.x*inter.n.x, d.y*inter.n.y, d.z*inter.n.z);
-        let mut bxdfs: Vec<Rc<dyn BXDF>> = vec![];
+        let mut bxdfs: Vec<Rc<dyn Bxdf>> = vec![];
         if r != black() {
             match &self.sigma {
                 Some(sigma) => {
@@ -138,8 +135,10 @@ impl Material for Matte {
     }
 
     fn scattering_pdf(&self, ray: &Ray, inter: &SurfaceInteraction) -> F {
-        let cos_theta = inter.n.dot(&ray.direction);
-        Distribution1D::cosine_hemisphere_pdf(cos_theta)
+        match inter.n.dot(&ray.direction) {
+            cos_theta if cos_theta > 0.0 =>  { Distribution1D::cosine_hemisphere_pdf(cos_theta) }
+            _ => 0.0
+        }
     }
 }
 

@@ -32,7 +32,7 @@ impl Shape for Primitive {
         match self.shape.intersect(&mut transformed_ray, test_alpha_texture) {
             Some(inter) => {
                 ray.t_max = transformed_ray.t_max;
-                return Some(self.object_to_world.forward_surface_interaction_transform(inter));
+                Some(self.object_to_world.forward_surface_interaction_transform(inter))
             },
             None => None,
         }

@@ -1,10 +1,10 @@
 use crate::vector::*;
 
-pub struct ONB {
+pub struct Onb {
     axis: [Vec3; 3],
 }
 
-impl ONB {
+impl Onb {
     pub fn u(&self) -> Vec3 {
         self.axis[0]
     }

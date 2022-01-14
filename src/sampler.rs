@@ -13,8 +13,7 @@ pub struct Distribution1D {
 impl Distribution1D {
     pub fn new(f: &[F], n: S) -> Self {
         let func =  Vec::<F>::from(f);
-        let mut cdf = Vec::<F>::new();
-        cdf.push(0.0);
+        let mut cdf = vec![0.0];
         for i in 1..n+1 {
             cdf.push(cdf[cdf.len()] + func[i-1] / n as F);
         }
@@ -33,15 +32,10 @@ impl Distribution1D {
     pub fn count(&self) -> S { self.func.len() }
 
     pub fn sample_discrete(&self, u: F) -> Option<(F, F)> {
-        match self.cdf.iter().enumerate().find(|(_, x)| **x <= u) {
-            Some((offset, _)) => {
-                Some((
+        self.cdf.iter().enumerate().find(|(_, x)| **x <= u).map(|(offset, _)| (
                     self.func[offset] / (self.func_int / self.count() as F),
                     (u - self.cdf[offset]) / (self.cdf[offset + 1] - self.cdf[offset])
                 ))
-            },
-            None => None,
-        }
     }
     pub fn discrete_pdf(&self, index: S) -> F {
         self.func[index] / (self.func_int * self.count() as F)

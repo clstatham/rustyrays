@@ -7,25 +7,13 @@ use crate::ray::Ray;
 use crate::shape::Shape;
 use crate::vector::*;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Shading {
     pub n: Normal3,
     pub dpdu: Vec3,
     pub dpdv: Vec3,
     // pub dndu: Normal3,
     // pub dndv: Normal3,
-}
-
-impl Default for Shading {
-    fn default() -> Self {
-        Self {
-            n: Normal3::default(),
-            dpdu: Vec3::default(),
-            dpdv: Vec3::default(),
-            // dndu: Normal3::default(),
-            // dndv: Normal3::default(),
-        }
-    }
 }
 
 // #[derive(Debug)]
@@ -80,7 +68,7 @@ impl SurfaceInteraction {
             // dndu,
             // dndv,
             time,
-            shading: Shading { n: n, dpdu, dpdv, },
+            shading: Shading { n, dpdu, dpdv, },
             // shape,
         };
         out.set_shading_geometry(dpdu, dpdv, false); // TODO: get actual authoritative value

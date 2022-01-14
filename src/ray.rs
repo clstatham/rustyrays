@@ -55,7 +55,7 @@ impl Ray {
             ry_origin: Some(self.origin + (self.ry_origin.unwrap() - self.origin ) * s),
             rx_direction: Some(self.direction + (self.rx_direction.unwrap() - self.direction ) * s),
             ry_direction: Some(self.direction + (self.ry_direction.unwrap() - self.direction ) * s),
-            ..Ray::from(self)
+            ..self
         })
     }
 }

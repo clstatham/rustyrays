@@ -25,7 +25,7 @@ use std::{rc::Rc};
 use beryllium::{init::{Sdl, InitFlags}, window::WindowFlags, event::Event};
 use camera::{Camera, SimpleCamera};
 use fermium::keycode;
-use material::{Matte, BXDF};
+use material::{Matte, Bxdf};
 use mesh::Mesh;
 use pixels::{SurfaceTexture, Pixels};
 use primitive::Primitive;
@@ -66,7 +66,7 @@ impl World {
 
     /// Fully traces a ray through the world, returning its final color.
     fn trace(&self, ray: &mut Ray, depth: S) -> Color3 {
-        let mut rr_factor = 1.0 as F;
+        let mut rr_factor = 1.0;
         if depth >= self.max_depth {
             let rr_stop_prob = 1.0f32.min(0.0625 * depth as F);
             if self.rng.sample_0_1() <= rr_stop_prob {
@@ -74,8 +74,6 @@ impl World {
             }
             rr_factor = 1.0 / (1.0 - rr_stop_prob);
         }
-        // let rng = Uniform::new(0.0, 1.0);
-        // let mut out_color = black();
         let mut interaction = None;
         let mut obj_hit  = None;
         for obj in self.objs.iter() {
@@ -94,8 +92,8 @@ impl World {
                         ray.origin = inter.p;
                         match result.bxdfs[0].sample_f(&result.wo, &self.rng.uniform_sample_point2()) {
                             Some((attenuation, pdf, wi, _)) => {
-                                ray.direction = onb::ONB::new_from_w(&inter.shading.n).local(&wi);
-                                let scatter_pdf = result.material.scattering_pdf(&ray, &inter);
+                                let scatter_pdf = result.material.scattering_pdf(ray, &inter);
+                                ray.direction = onb::Onb::new_from_w(&inter.shading.n).local(&wi);
                                 let bounced_color = self.trace(ray, depth+1);
                                 let mut out_color = attenuation * scatter_pdf;
                                 out_color.x *= bounced_color.x;
@@ -105,14 +103,14 @@ impl World {
                                 // out_color /= result.material.scattering_pdf(ray, &inter);
                                 out_color * rr_factor
                             },
-                            None => {return black()}
+                            None => {black()}
                         }
                         // out_color = color3(out_color.x * bounced_color.x, out_color.y * bounced_color.y, out_color.z * bounced_color.z);
                     },
-                    None => { return black() }
+                    None => { black() }
                 }
             },
-            None => return self.background * rr_factor
+            None => self.background * rr_factor
         }
     }
 
@@ -131,7 +129,7 @@ impl World {
         let pix = color_to_pixel(out_col);
         // let out_idx = xy.y as S * WIDTH as S + xy.x as S;
         // let out_idx = pixel_idx;
-        frame[4 * pixel_idx + 0] = pix[0];
+        frame[4 * pixel_idx] = pix[0];
         frame[4 * pixel_idx + 1] = pix[1];
         frame[4 * pixel_idx + 2] = pix[2];
         frame[4 * pixel_idx + 3] = pix[3];
@@ -211,15 +209,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     break 'game_loop
                 }
                 Event::Keyboard {
-                    scancode,
-                    is_pressed,
+                    // scancode,
+                    // is_pressed,
                     ..
                 } => {
-                    if is_pressed {
-                        // world.key_pressed(scancode)
-                    } else {
-                        // world.key_released(scancode)
-                    }
                 }
                 _ => (),
             }

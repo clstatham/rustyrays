@@ -41,10 +41,7 @@ impl Transform {
     pub fn new(m_forward: Matrix4, m_inverse: Matrix4) -> Self { Self{m_forward, m_inverse} }
     pub fn new_from_forward(m_forward: Matrix4) -> Option<Self> {
         let m_inverse = m_forward.try_inverse();
-        match m_inverse {
-            Some(m_inv) => Some(Self {m_forward, m_inverse: m_inv}),
-            None => None,
-        }
+        m_inverse.map(|m_inv| Self {m_forward, m_inverse: m_inv})
     }
 
     pub fn from_transpose(t: Transform) -> Self {

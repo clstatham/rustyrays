@@ -58,7 +58,7 @@ impl Shape for Sphere {
         let mut t_shape_hit = t0;
         if t_shape_hit < ray.t_min || t_shape_hit > ray.t_max {
             t_shape_hit = t1;
-            if t_shape_hit < ray.t_max || t_shape_hit > ray.t_max {
+            if t_shape_hit < ray.t_min || t_shape_hit > ray.t_max {
                 return None;
             }
         }

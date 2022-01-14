@@ -105,7 +105,6 @@ impl SimpleCamera {
         let yy = (1.0 - 2.0 * ((xy.y + 0.5) * (1.0 / HEIGHT as F))) * angle;
         let direction = vec3(xx, yy, -1.0).normalize();
         let ray = Ray::new_non_differential(point3(0.0,0.0,0.0), direction, 0.0001, F::INFINITY, 0.0);
-        let out = self.lookat.iray(&ray);
-        out
+        self.lookat.iray(&ray)
     }
 }
