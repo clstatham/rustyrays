@@ -1,39 +1,54 @@
 use std::rc::Rc;
 
+use crate::aabb::AABB3;
 use crate::common::*;
 use crate::interaction::SurfaceInteraction;
+use crate::light::Light;
+use crate::material::*;
 use crate::ray::Ray;
+use crate::shape::*;
 use crate::transform::Transform;
 use crate::vector::*;
-use crate::aabb::AABB3;
-use crate::shape::*;
-use crate::material::*;
 
 #[derive(Clone)]
 pub struct Primitive {
-    shape: Rc<dyn Shape>,
-    pub material: Rc<dyn Material>,
+    pub shape: Rc<dyn Shape>,
+    pub material: Option<Rc<dyn Material>>,
     // TODO: add material, light properties
-    object_to_world: Transform,
+    pub light: Option<Rc<dyn Light>>,
+    pub object_to_world: Transform,
 }
 
 impl Primitive {
-    pub fn new(shape: Rc<dyn Shape>, object_to_world: Transform, material: Rc<dyn Material>) -> Self {
+    pub fn new(
+        shape: Rc<dyn Shape>,
+        object_to_world: Transform,
+        material: Option<Rc<dyn Material>>,
+        light: Option<Rc<dyn Light>>,
+    ) -> Self {
         Self {
             shape,
             object_to_world,
             material,
+            light,
         }
     }
 }
 impl Shape for Primitive {
     fn intersect(&self, ray: &mut Ray, test_alpha_texture: bool) -> Option<SurfaceInteraction> {
         let mut transformed_ray = self.object_to_world.iray(ray);
-        match self.shape.intersect(&mut transformed_ray, test_alpha_texture) {
-            Some(inter) => {
+        match self
+            .shape
+            .intersect(&mut transformed_ray, test_alpha_texture)
+        {
+            Some(mut inter) => {
                 ray.t_max = transformed_ray.t_max;
-                Some(self.object_to_world.forward_surface_interaction_transform(inter))
-            },
+                inter.primitive = Some(Rc::new(self.clone()));
+                Some(
+                    self.object_to_world
+                        .forward_surface_interaction_transform(inter),
+                )
+            }
             None => None,
         }
     }

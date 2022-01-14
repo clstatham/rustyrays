@@ -18,10 +18,10 @@ use crate::common::*;
 // }
 pub type Matrix4 = glm::Mat4;
 pub fn matrix4(m: [[F; 4]; 4]) -> Matrix4 {
-    glm::mat4(m[0][0], m[0][1], m[0][2], m[0][3],
-            m[1][0], m[1][1], m[1][2], m[1][3],
-            m[2][0], m[2][1], m[2][2], m[2][3],
-            m[3][0], m[3][1], m[3][2], m[3][3],)
+    glm::mat4(
+        m[0][0], m[0][1], m[0][2], m[0][3], m[1][0], m[1][1], m[1][2], m[1][3], m[2][0], m[2][1],
+        m[2][2], m[2][3], m[3][0], m[3][1], m[3][2], m[3][3],
+    )
 }
 
 // matrix inversion formulae from https://stackoverflow.com/questions/1148309/inverting-a-4x4-matrix
@@ -42,7 +42,7 @@ pub fn matrix4(m: [[F; 4]; 4]) -> Matrix4 {
 //         - e(-1,-1)*e(0,0)*e(1,1)
 //         - e(-1,1)*e(0,-1)*e(1,0)
 //         - e(1,-1)*e(-1,0)*e(0,1);
-    
+
 //     if o % 2 == 0 {
 //         -inv
 //     } else {

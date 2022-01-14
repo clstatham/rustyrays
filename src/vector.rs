@@ -13,11 +13,21 @@ pub type Point2 = Vec2;
 pub type NAPoint3 = na::Point3<F>;
 pub type NAPoint2 = na::Point2<F>;
 
-pub fn vec3(x: F, y: F, z: F) -> Vec3 { glm::vec3(x, y, z) }
-pub fn point3(x: F, y: F, z: F) -> Point3 { glm::vec3(x, y, z) }
-pub fn normal3(x: F, y: F, z: F) -> Normal3 { glm::vec3(x, y, z) }
-pub fn point2(x: F, y: F) -> Point2 { glm::vec2(x, y) }
-pub fn vec2(x: F, y: F) -> Vec2 { glm::vec2(x, y) }
+pub fn vec3(x: F, y: F, z: F) -> Vec3 {
+    glm::vec3(x, y, z)
+}
+pub fn point3(x: F, y: F, z: F) -> Point3 {
+    glm::vec3(x, y, z)
+}
+pub fn normal3(x: F, y: F, z: F) -> Normal3 {
+    glm::vec3(x, y, z)
+}
+pub fn point2(x: F, y: F) -> Point2 {
+    glm::vec2(x, y)
+}
+pub fn vec2(x: F, y: F) -> Vec2 {
+    glm::vec2(x, y)
+}
 
 pub fn distance3(a: &Point3, b: &Point3) -> F {
     (a - b).magnitude()
@@ -27,11 +37,19 @@ pub fn distance_squared3(a: &Point3, b: &Point3) -> F {
     (a - b).magnitude_squared()
 }
 
-pub fn to_na_point2(a: Vec2) -> NAPoint2 { na::point![a.x, a.y] }
-pub fn from_na_point2(a: NAPoint2) -> Vec2 { vec2(a.x, a.y) }
+pub fn to_na_point2(a: Vec2) -> NAPoint2 {
+    na::point![a.x, a.y]
+}
+pub fn from_na_point2(a: NAPoint2) -> Vec2 {
+    vec2(a.x, a.y)
+}
 
-pub fn to_na_point3(a: Vec3) -> NAPoint3 { na::point![a.x, a.y, a.z] }
-pub fn from_na_point3(a: NAPoint3) -> Vec3 { vec3(a.x, a.y, a.z) }
+pub fn to_na_point3(a: Vec3) -> NAPoint3 {
+    na::point![a.x, a.y, a.z]
+}
+pub fn from_na_point3(a: NAPoint3) -> Vec3 {
+    vec3(a.x, a.y, a.z)
+}
 
 // Standard 3d float vector.
 // #[derive(Clone, Copy, PartialEq, Debug)]
@@ -40,7 +58,6 @@ pub fn from_na_point3(a: NAPoint3) -> Vec3 { vec3(a.x, a.y, a.z) }
 //     pub y: F,
 //     pub z: F,
 // }
-
 
 // #[derive(Clone, Copy, PartialEq, Debug)]
 // pub struct Vec2 {
@@ -141,10 +158,10 @@ pub fn from_na_point3(a: NAPoint3) -> Vec3 { vec3(a.x, a.y, a.z) }
 //     }
 
 //     pub fn cross(self, other: Vec3) -> Vec3 {
-//         Vec3 { 
-//             x: self.y*other.z - self.z*other.y, 
-//             y: self.z*other.x - self.x*other.z, 
-//             z: self.x*other.y - self.y*other.x 
+//         Vec3 {
+//             x: self.y*other.z - self.z*other.y,
+//             y: self.z*other.x - self.x*other.z,
+//             z: self.x*other.y - self.y*other.x
 //         }
 //     }
 
@@ -153,7 +170,7 @@ pub fn from_na_point3(a: NAPoint3) -> Vec3 { vec3(a.x, a.y, a.z) }
 //     }
 //     pub fn length(self) -> F { self.length_squared().sqrt() }
 
-//     pub fn normalize(self) -> Vec3 { 
+//     pub fn normalize(self) -> Vec3 {
 //         let l = self.length();
 //         assert_ne!(l, 0.0);
 //         self / l
@@ -162,7 +179,7 @@ pub fn from_na_point3(a: NAPoint3) -> Vec3 { vec3(a.x, a.y, a.z) }
 //     pub fn min(self) -> F { self.x.min(self.y.min(self.z)) }
 //     pub fn max(self) -> F { self.x.max(self.y.max(self.z)) }
 
-//     pub fn argmin(self) -> UI { 
+//     pub fn argmin(self) -> UI {
 //         if self.x < self.y && self.x < self.z { return X_AXIS }
 //         if self.y < self.x && self.y < self.z { return Y_AXIS }
 //         if self.z < self.x && self.z < self.y { return Z_AXIS }
@@ -171,7 +188,7 @@ pub fn from_na_point3(a: NAPoint3) -> Vec3 { vec3(a.x, a.y, a.z) }
 //         return 0
 //     }
 
-//     pub fn argmax(self) -> UI { 
+//     pub fn argmax(self) -> UI {
 //         if self.x > self.y && self.x > self.z { return X_AXIS }
 //         if self.y > self.x && self.y > self.z { return Y_AXIS }
 //         if self.z > self.x && self.z > self.y { return Z_AXIS }

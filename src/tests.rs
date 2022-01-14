@@ -1,12 +1,11 @@
-#[cfg(test)]
-
-use std::f32::INFINITY;
 use std::f32::consts::PI;
+#[cfg(test)]
+use std::f32::INFINITY;
 
 use crate::common::F;
 use crate::ray::Ray;
-use crate::vector::*;
 use crate::transform::Transform;
+use crate::vector::*;
 
 pub fn assert_close_vec(a: Vec3, b: Vec3) {
     let diff = (a - b).magnitude_squared();
@@ -18,7 +17,7 @@ fn test_transforms() {
     let x = vec3(1.0, 0.0, 0.0);
     let y = vec3(0.0, 1.0, 0.0);
     let z = vec3(0.0, 0.0, 1.0);
-    
+
     let translate_x = Transform::new_translate(x);
     let translate_y = Transform::new_translate(y);
     let translate_z = Transform::new_translate(z);
@@ -107,6 +106,4 @@ fn test_transforms() {
     assert_close_vec(xy_t_x.direction, ray_xy.direction);
     assert_close_vec(yz_t_x.direction, ray_yz.direction);
     assert_close_vec(zx_t_x.direction, ray_zx.direction);
-
-    
 }

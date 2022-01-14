@@ -1,12 +1,12 @@
 use std::f32::consts::PI;
 
+use crate::aabb::AABB3;
 use crate::common::*;
 use crate::interaction::SurfaceInteraction;
+use crate::matrix::*;
 use crate::ray::Ray;
 use crate::transform::Transform;
 use crate::vector::*;
-use crate::matrix::*;
-use crate::aabb::AABB3;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ShapeData {
@@ -25,5 +25,7 @@ pub trait Shape {
     fn intersect(&self, _r: &mut Ray, _test_alpha_texture: bool) -> Option<SurfaceInteraction>;
     fn intersect_p(&self, r: &Ray, test_alpha_texture: bool) -> bool;
     fn area(&self) -> F;
-    fn pdf(&self, _ref: SurfaceInteraction) -> F { 1.0 / self.area() }
+    fn pdf(&self, _ref: SurfaceInteraction) -> F {
+        1.0 / self.area()
+    }
 }

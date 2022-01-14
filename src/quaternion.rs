@@ -1,7 +1,7 @@
 use std::ops::Add;
-use std::ops::Sub;
-use std::ops::Mul;
 use std::ops::Div;
+use std::ops::Mul;
+use std::ops::Sub;
 
 use crate::common::*;
 use crate::vector::*;
@@ -13,12 +13,22 @@ pub struct Quaternion {
 }
 
 impl Quaternion {
-    pub fn new(v: Vec3, w: F) -> Self { Self {v, w} }
+    pub fn new(v: Vec3, w: F) -> Self {
+        Self { v, w }
+    }
 
-    pub fn x(self) -> F { self.v.x }
-    pub fn y(self) -> F { self.v.y }
-    pub fn z(self) -> F { self.v.z }
-    pub fn w(self) -> F { self.w }
+    pub fn x(self) -> F {
+        self.v.x
+    }
+    pub fn y(self) -> F {
+        self.v.y
+    }
+    pub fn z(self) -> F {
+        self.v.z
+    }
+    pub fn w(self) -> F {
+        self.w
+    }
 
     pub fn dot(self, q: Quaternion) -> F {
         self.v.dot(&q.v) + self.w * q.w

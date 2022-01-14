@@ -2,45 +2,61 @@ use std::f32::consts::PI;
 use std::ops::BitAnd;
 use std::rc::Rc;
 
-use crate::color::{Color3, black};
+use crate::color::{black, Color3};
 use crate::common::*;
 use crate::interaction::SurfaceInteraction;
+use crate::onb::Onb;
 use crate::ray::Ray;
 use crate::rng::RngGen;
 use crate::sampler::Distribution1D;
 use crate::shape::Shape;
 use crate::texture::{ColorTexture, ScalarTexture};
 use crate::vector::*;
-use crate::onb::Onb;
 
-
-pub const BXDF_REFLECTION: u8 =     0b00000001;
-pub const BXDF_TRANSMISSION: u8 =   0b00000010;
-pub const BXDF_DIFFUSE: u8 =        0b00000100;
-pub const BXDF_GLOSSY: u8 =         0b00001000;
-pub const BXDF_SPECULAR: u8 =       0b00010000;
-pub const BXDF_ALL: u8 = BXDF_DIFFUSE | BXDF_GLOSSY | BXDF_REFLECTION | BXDF_SPECULAR | BXDF_TRANSMISSION;
+pub const BXDF_REFLECTION: u8 = 0b00000001;
+pub const BXDF_TRANSMISSION: u8 = 0b00000010;
+pub const BXDF_DIFFUSE: u8 = 0b00000100;
+pub const BXDF_GLOSSY: u8 = 0b00001000;
+pub const BXDF_SPECULAR: u8 = 0b00010000;
+pub const BXDF_ALL: u8 =
+    BXDF_DIFFUSE | BXDF_GLOSSY | BXDF_REFLECTION | BXDF_SPECULAR | BXDF_TRANSMISSION;
 pub type BXDFType = u8;
 
-fn same_hemisphere(w: &Vec3, wp: &Vec3) -> bool { w.z * wp.z > 0.0 }
-fn abs_cos_theta(w: &Vec3) -> F { w.z.abs() }
+fn same_hemisphere(w: &Vec3, wp: &Vec3) -> bool {
+    w.z * wp.z > 0.0
+}
+fn abs_cos_theta(w: &Vec3) -> F {
+    w.z.abs()
+}
 pub trait Bxdf {
     fn bxdf_type(&self) -> BXDFType;
-    fn scale(&self) -> F { 1.0 }
+    fn scale(&self) -> F {
+        1.0
+    }
     fn f(&self, wo: &Vec3, wi: &Vec3) -> Option<Color3>;
     fn pdf(&self, wo: &Vec3, wi: &Vec3) -> F {
-        if same_hemisphere(wo, wi) { abs_cos_theta(wi) / PI} else { 0.0 }
+        if same_hemisphere(wo, wi) {
+            abs_cos_theta(wi) / PI
+        } else {
+            0.0
+        }
     }
     fn sample_f(&self, wo: &Vec3, u: &Point2) -> Option<(Color3, F, Vec3, BXDFType)> {
         let mut wi = Distribution1D::cosine_sample_hemisphere(u);
-        if wo.z < 0.0 { wi.z *= -1.0 }
+        if wo.z < 0.0 {
+            wi.z *= -1.0
+        }
         let pdf = self.pdf(wo, &wi);
         self.f(wo, &wi).map(|col| (col, pdf, wi, self.bxdf_type()))
     }
     fn rho(&self, n_samples: S, wo: &Vec3, samples: &[Point2]) -> Option<Color3>;
-    fn rho_2samples(&self, n_samples: S, samples1: &[Point2], samples2: &[Point2]) -> Option<Color3>;
+    fn rho_2samples(
+        &self,
+        n_samples: S,
+        samples1: &[Point2],
+        samples2: &[Point2],
+    ) -> Option<Color3>;
 }
-
 
 pub struct LambertianReflection {
     r: Color3,
@@ -48,7 +64,7 @@ pub struct LambertianReflection {
 
 impl LambertianReflection {
     pub fn new(r: Color3) -> Self {
-        Self {r}
+        Self { r }
     }
 }
 
@@ -56,7 +72,12 @@ impl Bxdf for LambertianReflection {
     fn bxdf_type(&self) -> BXDFType {
         BXDF_DIFFUSE | BXDF_REFLECTION
     }
-    fn rho_2samples(&self, n_samples: S, samples1: &[Point2], samples2: &[Point2]) -> Option<Color3> {
+    fn rho_2samples(
+        &self,
+        n_samples: S,
+        samples1: &[Point2],
+        samples2: &[Point2],
+    ) -> Option<Color3> {
         Some(self.r)
     }
     fn rho(&self, n_samples: S, wo: &Vec3, samples: &[Point2]) -> Option<Color3> {
@@ -87,10 +108,14 @@ pub struct ScatterResult {
 }
 
 pub trait Material {
-    fn scatter_ray(&self, ray: &mut Ray, inter: &SurfaceInteraction, rng: &RngGen) -> Option<ScatterResult>;
+    fn scatter_ray(
+        &self,
+        ray: &mut Ray,
+        inter: &SurfaceInteraction,
+        rng: &RngGen,
+    ) -> Option<ScatterResult>;
     fn scattering_pdf(&self, _ray: &Ray, _inter: &SurfaceInteraction) -> F;
 }
-
 
 #[derive(Clone)]
 pub struct Matte {
@@ -100,14 +125,18 @@ pub struct Matte {
 }
 
 impl Material for Matte {
-    fn scatter_ray(&self, ray: &mut Ray, inter: &SurfaceInteraction, rng: &RngGen) -> Option<ScatterResult> {
-        
+    fn scatter_ray(
+        &self,
+        ray: &mut Ray,
+        inter: &SurfaceInteraction,
+        rng: &RngGen,
+    ) -> Option<ScatterResult> {
         // let d = Distribution1D::cosine_sample_hemisphere(&point2(rng.sample_0_1(), rng.sample_0_1()));
         // let onb = ONB::new_from_w(&inter.n);
         // let new_d = onb.local(&d);
         // ray.direction = new_d;
         // let cosine = new_d.dot(&onb.w());
-        
+
         let r = self.kd.eval(inter);
         // let adjusted_direction = vec3(d.x*inter.n.x, d.y*inter.n.y, d.z*inter.n.z);
         let mut bxdfs: Vec<Rc<dyn Bxdf>> = vec![];
@@ -120,11 +149,11 @@ impl Material for Matte {
                     } else {
                         // interacted_materials.push(Rc::new(OrenNayar::new(r, sig)));
                     }
-                },
-                None => {return None}
-            }            
+                }
+                None => return None,
+            }
         }
-        
+
         Some(ScatterResult {
             // shape: inter.shape.clone(),
             material: Rc::new(self.clone()),
@@ -135,10 +164,13 @@ impl Material for Matte {
     }
 
     fn scattering_pdf(&self, ray: &Ray, inter: &SurfaceInteraction) -> F {
-        match inter.n.dot(&ray.direction) {
-            cos_theta if cos_theta > 0.0 =>  { Distribution1D::cosine_hemisphere_pdf(cos_theta) }
-            _ => 0.0
+        if let Some(n) = inter.n {
+            match n.dot(&ray.direction) {
+                cos_theta if cos_theta > 0.0 => Distribution1D::cosine_hemisphere_pdf(cos_theta),
+                _ => 0.0,
+            }
+        } else {
+            0.0
         }
     }
 }
-

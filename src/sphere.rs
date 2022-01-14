@@ -1,14 +1,13 @@
-
 use std::f32::consts::PI;
 use std::rc::Rc;
 
+use crate::aabb::AABB3;
 use crate::common::*;
 use crate::interaction::SurfaceInteraction;
 use crate::ray::Ray;
+use crate::shape::*;
 use crate::transform::Transform;
 use crate::vector::*;
-use crate::aabb::AABB3;
-use crate::shape::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Sphere {
@@ -22,7 +21,10 @@ pub struct Sphere {
 impl Sphere {
     pub fn new(reverse_orientation: bool, radius: F) -> Self {
         Self {
-            shape_data: ShapeData { reverse_orientation, transform_swaps_handedness: false },
+            shape_data: ShapeData {
+                reverse_orientation,
+                transform_swaps_handedness: false,
+            },
             radius,
             // z_min: z_min.min(z_max).clamp(-radius, radius),
             // z_max: z_min.max(z_max).clamp(-radius, radius),
@@ -50,10 +52,10 @@ impl Shape for Sphere {
         let time = ray.time;
         let a = ray.direction.magnitude_squared();
         let b = 2.0 * ray.direction.dot(&ray.origin);
-        let c = ray.origin.dot(&ray.origin) - self.radius*self.radius;
+        let c = ray.origin.dot(&ray.origin) - self.radius * self.radius;
         let (t0, t1) = match quadratic(a, b, c) {
             None => return None,
-            Some((t0_, t1_)) => (t0_, t1_)
+            Some((t0_, t1_)) => (t0_, t1_),
         };
         let mut t_shape_hit = t0;
         if t_shape_hit < ray.t_min || t_shape_hit > ray.t_max {
@@ -64,11 +66,13 @@ impl Shape for Sphere {
         }
         ray.t_max = t_shape_hit;
         let mut p = ray.at(t_shape_hit);
-        if p.x == 0.0 && p.y == 0.0 { p.x = 1e-5 * self.radius; }
+        if p.x == 0.0 && p.y == 0.0 {
+            p.x = 1e-5 * self.radius;
+        }
         let n = normal3(p.x, p.y, p.z);
         let theta = F::acos((p.z / self.radius).clamp(-1.0, 1.0));
 
-        let inv_z = 1.0 / F::sqrt(p.x*p.x + p.y*p.y);
+        let inv_z = 1.0 / F::sqrt(p.x * p.x + p.y * p.y);
         let cos_phi = p.x * inv_z;
         let sin_phi = p.y * inv_z;
         let u = match F::atan2(p.x, p.y) / (2.0 * PI) {
@@ -76,11 +80,16 @@ impl Shape for Sphere {
             x => x,
         };
         let v = theta / PI;
-        let dpdu = vec3(-2.0*PI*p.y, 2.0*PI*p.x, 0.0);
-        let dpdv = vec3(p.z*cos_phi, p.z*sin_phi, -self.radius*theta.sin()) * PI;
-        Some(
-            SurfaceInteraction::new(p, point2(u, v), dpdu, dpdv, time),
-        )
+        let dpdu = vec3(-2.0 * PI * p.y, 2.0 * PI * p.x, 0.0);
+        let dpdv = vec3(p.z * cos_phi, p.z * sin_phi, -self.radius * theta.sin()) * PI;
+        Some(SurfaceInteraction::new(
+            p,
+            point2(u, v),
+            dpdu,
+            dpdv,
+            time,
+            None,
+        ))
     }
 
     fn area(&self) -> F {
@@ -92,10 +101,10 @@ impl Shape for Sphere {
         // let time = ray.time;
         let a = ray.direction.magnitude_squared();
         let b = 2.0 * ray.direction.dot(&ray.origin);
-        let c = ray.origin.magnitude_squared() - self.radius*self.radius;
+        let c = ray.origin.magnitude_squared() - self.radius * self.radius;
         let (t0, t1) = match quadratic(a, b, c) {
             None => return false,
-            Some((t0_, t1_)) => (t0_, t1_)
+            Some((t0_, t1_)) => (t0_, t1_),
         };
         let mut t_shape_hit = t0;
         if t_shape_hit < ray.t_min || t_shape_hit > ray.t_max {

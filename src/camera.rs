@@ -1,8 +1,8 @@
 use crate::matrix::matrix4;
-use crate::{common::*, WIDTH, HEIGHT, ASPECT_RATIO};
 use crate::ray::Ray;
-use crate::vector::*;
 use crate::transform::Transform;
+use crate::vector::*;
+use crate::{common::*, ASPECT_RATIO, HEIGHT, WIDTH};
 
 pub struct Camera {
     camera_to_world: Transform,
@@ -20,20 +20,22 @@ impl Camera {
     pub fn new(camera_to_world: Transform, fov_deg: F) -> Camera {
         let f = 1000.0;
         let n = 0.0001;
-        let screen = 
-            if ASPECT_RATIO > 1.0 {
-                [-ASPECT_RATIO, ASPECT_RATIO, -1.0, 1.0]
-            } else {
-                [-1.0, 1.0, -1.0 / ASPECT_RATIO, 1.0 / ASPECT_RATIO]
-            };
+        let screen = if ASPECT_RATIO > 1.0 {
+            [-ASPECT_RATIO, ASPECT_RATIO, -1.0, 1.0]
+        } else {
+            [-1.0, 1.0, -1.0 / ASPECT_RATIO, 1.0 / ASPECT_RATIO]
+        };
         // let camera_to_screen = Transform::new_perspective(fov_deg, n, f);
-        let screen_to_raster = 
-            Transform::new_scale(vec3(WIDTH as F, HEIGHT as F, 1.0))
-            * Transform::new_scale(vec3(1.0 / (screen[1] - screen[0]) as F, 1.0 / (screen[2] - screen[3]) as F, 1.0))
+        let screen_to_raster = Transform::new_scale(vec3(WIDTH as F, HEIGHT as F, 1.0))
+            * Transform::new_scale(vec3(
+                1.0 / (screen[1] - screen[0]) as F,
+                1.0 / (screen[2] - screen[3]) as F,
+                1.0,
+            ))
             * Transform::new_translate(vec3(-screen[0], -screen[3], 0.0));
-        
+
         let raster_to_screen = screen_to_raster.as_inverse_transform();
-        
+
         // let persp = matrix4([
         //     [1.0, 0.0, 0.0, 0.0],
         //     [0.0, 1.0, 0.0, 0.0],
@@ -76,11 +78,12 @@ impl Camera {
     pub fn get_ray(&self, xy: Point2) -> Ray {
         let p_raster = point3(xy.x, xy.y, 0.0);
         // let p_screen = self.screen_to_raster.ipt(p_raster);
-        
+
         let p_camera = self.raster_to_camera.fpt(p_raster);
         let direction = p_camera.normalize();
         // let p_camera = self.p_scale.fpt((self.p_div_inv * self.screen_to_raster).fpt(p_film));
-        let ray = Ray::new_non_differential(point3(0.0,0.0,0.0), direction, 0.0000, F::INFINITY, 0.0);
+        let ray =
+            Ray::new_non_differential(point3(0.0, 0.0, 0.0), direction, 0.0000, F::INFINITY, 0.0);
         self.camera_to_world.iray(&ray)
     }
 }
@@ -95,16 +98,17 @@ impl SimpleCamera {
     pub fn new(origin: Point3, lookat: Point3, fov: F) -> Self {
         Self {
             fov,
-            lookat: Transform::new_lookat(origin, lookat, vec3(0.0, 1.0, 0.0))
+            lookat: Transform::new_lookat(origin, lookat, vec3(0.0, 1.0, 0.0)),
         }
     }
 
     pub fn get_ray(&self, xy: Point2) -> Ray {
-        let angle = deg2rad(self.fov/2.0).tan();
+        let angle = deg2rad(self.fov / 2.0).tan();
         let xx = (2.0 * ((xy.x + 0.5) * (1.0 / WIDTH as F)) - 1.0) * angle * ASPECT_RATIO;
         let yy = (1.0 - 2.0 * ((xy.y + 0.5) * (1.0 / HEIGHT as F))) * angle;
         let direction = vec3(xx, yy, -1.0).normalize();
-        let ray = Ray::new_non_differential(point3(0.0,0.0,0.0), direction, 0.0001, F::INFINITY, 0.0);
+        let ray =
+            Ray::new_non_differential(point3(0.0, 0.0, 0.0), direction, 0.0001, F::INFINITY, 0.0);
         self.lookat.iray(&ray)
     }
 }

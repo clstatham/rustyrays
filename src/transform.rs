@@ -8,11 +8,11 @@ use glm::rotation;
 use crate::aabb::AABB3;
 use crate::common::*;
 use crate::interaction::Shading;
-use crate::ray::Ray;
-use crate::vector::*;
+use crate::interaction::SurfaceInteraction;
 use crate::matrix::*;
 use crate::quaternion::Quaternion;
-use crate::interaction::SurfaceInteraction;
+use crate::ray::Ray;
+use crate::vector::*;
 
 // pub trait Transform {
 //     fn forward_matrix(self) -> Matrix4;
@@ -35,13 +35,24 @@ impl Transform {
     }
 
     pub fn as_inverse_transform(&self) -> Transform {
-        Transform { m_forward: self.m_inverse, m_inverse: self.m_forward }
+        Transform {
+            m_forward: self.m_inverse,
+            m_inverse: self.m_forward,
+        }
     }
 
-    pub fn new(m_forward: Matrix4, m_inverse: Matrix4) -> Self { Self{m_forward, m_inverse} }
+    pub fn new(m_forward: Matrix4, m_inverse: Matrix4) -> Self {
+        Self {
+            m_forward,
+            m_inverse,
+        }
+    }
     pub fn new_from_forward(m_forward: Matrix4) -> Option<Self> {
         let m_inverse = m_forward.try_inverse();
-        m_inverse.map(|m_inv| Self {m_forward, m_inverse: m_inv})
+        m_inverse.map(|m_inv| Self {
+            m_forward,
+            m_inverse: m_inv,
+        })
     }
 
     pub fn from_transpose(t: Transform) -> Self {
@@ -73,7 +84,9 @@ impl Transform {
             //     [0.0, 0.0, 1.0, -delta.z],
             //     [0.0, 0.0, 0.0, 1.0]
             // ]),
-            m_inverse: glm::translation(&delta).try_inverse().expect("Couldn't invert translation matrix!"),
+            m_inverse: glm::translation(&delta)
+                .try_inverse()
+                .expect("Couldn't invert translation matrix!"),
         }
     }
 
@@ -92,7 +105,9 @@ impl Transform {
             //     [0.0, 0.0, 0.0, 1.0],
             // ])
             m_forward: glm::scaling(&s),
-            m_inverse: glm::scaling(&s).try_inverse().expect("Couldn't build inverse scaling matrix")
+            m_inverse: glm::scaling(&s)
+                .try_inverse()
+                .expect("Couldn't build inverse scaling matrix"),
         }
     }
 
@@ -170,13 +185,22 @@ impl Transform {
         //     [0.0, 0.0, 0.0, 1.0],
         // ]);
         // Self { m_forward, m_inverse: m_forward.invert().expect("Couldn't invert lookat matrix!") }
-        let m_forward = glm::look_at(&vec3(pos.x, pos.y, pos.z),  &vec3(look.x, look.y, look.z), &up);
-        Self { m_forward, m_inverse: m_forward.try_inverse().expect("Couldn't invert lookat matrix!") }
+        let m_forward = glm::look_at(
+            &vec3(pos.x, pos.y, pos.z),
+            &vec3(look.x, look.y, look.z),
+            &up,
+        );
+        Self {
+            m_forward,
+            m_inverse: m_forward
+                .try_inverse()
+                .expect("Couldn't invert lookat matrix!"),
+        }
     }
 
     pub fn new_orthographic(z_near: F, z_far: F) -> Self {
         Transform::new_scale(vec3(1.0, 1.0, 1.0 / (z_far - z_near)))
-        * Transform::new_translate(vec3(0.0, 0.0, -z_near))
+            * Transform::new_translate(vec3(0.0, 0.0, -z_near))
         // Self {
         //     m_forward: glm::ortho_rh()
         // }
@@ -186,11 +210,12 @@ impl Transform {
         let persp = matrix4([
             [1.0, 0.0, 0.0, 0.0],
             [0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, f / (f-n), -f*n/(f-n)],
+            [0.0, 0.0, f / (f - n), -f * n / (f - n)],
             [0.0, 0.0, 1.0, 0.0],
         ]);
         let inv_tan = 1.0 / (deg2rad(fov_deg) / 2.0).tan();
-        Transform::new_scale(vec3(inv_tan, inv_tan, 1.0)) * Transform::new_from_forward(persp).expect("Couldn't invert perspective matrix!")
+        Transform::new_scale(vec3(inv_tan, inv_tan, 1.0))
+            * Transform::new_from_forward(persp).expect("Couldn't invert perspective matrix!")
         // Self {
         //     m_forward: glm::perspective_fov(deg2rad(fov_deg / 2.0), 1.0, 1.0, n, f),
         //     m_inverse: glm::perspective_fov(deg2rad(fov_deg / 2.0), 1.0, 1.0, n, f).try_inverse().expect("Couldn't invert perspective matrix!"),
@@ -214,13 +239,17 @@ impl Transform {
         from_na_point3(self.m_forward.transform_point(&to_na_point3(a)))
     }
     /// IMPORTANT: Only use for Points!
-    pub fn fpt(self, a: Point3) -> Point3 { self.forward_point_transform(a) }
+    pub fn fpt(self, a: Point3) -> Point3 {
+        self.forward_point_transform(a)
+    }
     /// IMPORTANT: Only use for Points!
     pub fn inverse_point_transform(self, a: Point3) -> Point3 {
         from_na_point3(self.m_inverse.transform_point(&to_na_point3(a)))
     }
     /// IMPORTANT: Only use for Points!
-    pub fn ipt(self, a: Point3) -> Point3 { self.inverse_point_transform(a) }
+    pub fn ipt(self, a: Point3) -> Point3 {
+        self.inverse_point_transform(a)
+    }
 
     /// IMPORTANT: Only use for Vectors!
     pub fn forward_vector_transform(self, a: Vec3) -> Vec3 {
@@ -228,13 +257,17 @@ impl Transform {
         // else { point3(x, y, z) / w }
     }
     /// IMPORTANT: Only use for Vectors!
-    pub fn fvec(self, a: Vec3) -> Vec3 { self.forward_vector_transform(a) }
+    pub fn fvec(self, a: Vec3) -> Vec3 {
+        self.forward_vector_transform(a)
+    }
     /// IMPORTANT: Only use for Vectors!
     pub fn inverse_vector_transform(self, a: Vec3) -> Vec3 {
         self.m_inverse.transform_vector(&a)
     }
     /// IMPORTANT: Only use for Vectors!
-    pub fn ivec(self, a: Vec3) -> Vec3 { self.inverse_vector_transform(a) }
+    pub fn ivec(self, a: Vec3) -> Vec3 {
+        self.inverse_vector_transform(a)
+    }
 
     /// IMPORTANT: Only use for Normals!
     // pub fn forward_normal_transform(self, a: Normal3) -> Normal3 {
@@ -247,7 +280,9 @@ impl Transform {
     //     // else { point3(x, y, z) / w }
     // }
     // /// IMPORTANT: Only use for Normals!
-    pub fn fnorm(self, a: Normal3) -> Normal3 { self.forward_vector_transform(a) }
+    pub fn fnorm(self, a: Normal3) -> Normal3 {
+        self.forward_vector_transform(a)
+    }
     // /// IMPORTANT: Only use for Normals!
     // pub fn inverse_normal_transform(self, a: Normal3) -> Normal3 {
     //     let m = self.m_forward;
@@ -258,7 +293,9 @@ impl Transform {
     //     normal3(x, y, z)
     // }
     // /// IMPORTANT: Only use for Normals!
-    pub fn inorm(self, a: Normal3) -> Normal3 { self.inverse_vector_transform(a) }
+    pub fn inorm(self, a: Normal3) -> Normal3 {
+        self.inverse_vector_transform(a)
+    }
 
     pub fn forward_ray_transform(self, a: &Ray) -> Ray {
         let o = self.fpt(a.origin);
@@ -269,7 +306,9 @@ impl Transform {
             ..*a
         }
     }
-    pub fn fray(self, a: &Ray) -> Ray { self.forward_ray_transform(a) }
+    pub fn fray(self, a: &Ray) -> Ray {
+        self.forward_ray_transform(a)
+    }
 
     pub fn inverse_ray_transform(self, a: &Ray) -> Ray {
         let o = self.ipt(a.origin);
@@ -280,7 +319,9 @@ impl Transform {
             ..*a
         }
     }
-    pub fn iray(self, a: &Ray) -> Ray { self.inverse_ray_transform(a) }
+    pub fn iray(self, a: &Ray) -> Ray {
+        self.inverse_ray_transform(a)
+    }
 
     // TODO: Optimize these?
     pub fn forward_aabb_transform(self, a: &AABB3) -> AABB3 {
@@ -298,7 +339,9 @@ impl Transform {
         ret = ret.union(self.fpt(point3(a.p_max.x, a.p_max.y, a.p_max.z)));
         ret
     }
-    pub fn faabb(self, a: &AABB3) -> AABB3 { self.forward_aabb_transform(a) }
+    pub fn faabb(self, a: &AABB3) -> AABB3 {
+        self.forward_aabb_transform(a)
+    }
 
     pub fn inverse_aabb_transform(self, a: &AABB3) -> AABB3 {
         let mut ret = AABB3::from(point3(a.p_min.x, a.p_min.y, a.p_min.z));
@@ -315,26 +358,56 @@ impl Transform {
         ret = ret.union(self.ipt(point3(a.p_max.x, a.p_max.y, a.p_max.z)));
         ret
     }
-    pub fn iaabb(self, a: &AABB3) -> AABB3 { self.inverse_aabb_transform(a) }
+    pub fn iaabb(self, a: &AABB3) -> AABB3 {
+        self.inverse_aabb_transform(a)
+    }
 
-    pub fn forward_surface_interaction_transform(self, a: SurfaceInteraction) -> SurfaceInteraction {
+    pub fn forward_surface_interaction_transform(
+        self,
+        a: SurfaceInteraction,
+    ) -> SurfaceInteraction {
+        let dpdu;
+        let dpdv;
+        let n;
+        let shading;
+        if let Some(a_dpdu) = a.dpdu {
+            dpdu = Some(self.fvec(a_dpdu));
+        } else {
+            dpdu = None;
+        }
+        if let Some(a_dpdv) = a.dpdv {
+            dpdv = Some(self.fvec(a_dpdv));
+        } else {
+            dpdv = None;
+        }
+        if let Some(a_n) = a.n {
+            n = Some(self.fnorm(a_n).normalize());
+        } else {
+            n = None;
+        }
+        if let Some(a_shading) = a.shading {
+            shading = Some(Shading {
+                n: self.fnorm(a_shading.n),
+                dpdu: self.fvec(a_shading.dpdu),
+                dpdv: self.fvec(a_shading.dpdv),
+                // dndu: self.fnorm(a.shading.dndu),
+                // dndv: self.fnorm(a.shading.dndv),
+            });
+        } else {
+            shading = None;
+        }
         SurfaceInteraction {
             p: self.fpt(a.p),
-            n: self.fnorm(a.n).normalize(),
+            n,
             // wo: self.fvec(a.wo),
             time: a.time,
             uv: a.uv,
-            dpdu: self.fvec(a.dpdu),
-            dpdv: self.fvec(a.dpdv),
+            dpdu,
+            dpdv,
             // dndu: self.fnorm(a.dndu),
             // dndv: self.fnorm(a.dndv),
-            shading: Shading {
-                n: self.fnorm(a.shading.n),
-                dpdu: self.fvec(a.shading.dpdu),
-                dpdv: self.fvec(a.shading.dpdv),
-                // dndu: self.fnorm(a.shading.dndu),
-                // dndv: self.fnorm(a.shading.dndv),
-            },
+            shading,
+            primitive: a.primitive,
             // p_error: a.p_error,
             // shape: a.shape,
         }
@@ -344,7 +417,10 @@ impl Transform {
 impl Mul<Transform> for Transform {
     type Output = Transform;
     fn mul(self, rhs: Transform) -> Transform {
-        Transform::new(self.m_forward * rhs.m_forward, self.m_inverse * rhs.m_inverse)
+        Transform::new(
+            self.m_forward * rhs.m_forward,
+            self.m_inverse * rhs.m_inverse,
+        )
     }
 }
 
@@ -407,7 +483,7 @@ fn decompose_transform(tr: Transform) -> Option<(Vec3, Quaternion, Matrix4)> {
                 count += 1;
                 r = r_next;
             }
-            
+
         }
     }
     let mut s_ = r.invert();
@@ -415,7 +491,7 @@ fn decompose_transform(tr: Transform) -> Option<(Vec3, Quaternion, Matrix4)> {
         None => return None,
         Some(mut s) => {
             s = s * m;
-            if 
+            if
         }
     }
 }

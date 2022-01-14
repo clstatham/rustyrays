@@ -14,7 +14,6 @@ pub struct AABB3 {
     pub p_max: Point3,
 }
 
-
 impl AABB3 {
     pub fn new(p1: Point3, p2: Point3) -> Self {
         Self {
@@ -26,24 +25,48 @@ impl AABB3 {
     /// Constructs a new AABB containing both the AABB and the given point.
     pub fn union(self, p: Point3) -> AABB3 {
         AABB3 {
-            p_min: point3(self.p_min.x.min(p.x), self.p_min.y.min(p.y), self.p_min.z.min(p.z)),
-            p_max: point3(self.p_max.x.max(p.x), self.p_max.y.max(p.y), self.p_max.z.max(p.z)),
+            p_min: point3(
+                self.p_min.x.min(p.x),
+                self.p_min.y.min(p.y),
+                self.p_min.z.min(p.z),
+            ),
+            p_max: point3(
+                self.p_max.x.max(p.x),
+                self.p_max.y.max(p.y),
+                self.p_max.z.max(p.z),
+            ),
         }
     }
 
     /// Constructs a new AABB containing both AABBs.
     pub fn combine(self, other: AABB3) -> AABB3 {
         AABB3 {
-            p_min: point3(self.p_min.x.min(other.p_min.x), self.p_min.y.min(other.p_min.y), self.p_min.z.min(other.p_min.z)),
-            p_max: point3(self.p_max.x.max(other.p_max.x), self.p_max.y.max(other.p_max.y), self.p_max.z.max(other.p_max.z)),
+            p_min: point3(
+                self.p_min.x.min(other.p_min.x),
+                self.p_min.y.min(other.p_min.y),
+                self.p_min.z.min(other.p_min.z),
+            ),
+            p_max: point3(
+                self.p_max.x.max(other.p_max.x),
+                self.p_max.y.max(other.p_max.y),
+                self.p_max.z.max(other.p_max.z),
+            ),
         }
     }
 
     /// Constructs a new AABB containing the intersection of two AABBs.
     pub fn intersect(self, other: AABB3) -> AABB3 {
         AABB3 {
-            p_min: point3(self.p_min.x.max(other.p_min.x), self.p_min.y.max(other.p_min.y), self.p_min.z.max(other.p_min.z)),
-            p_max: point3(self.p_max.x.min(other.p_max.x), self.p_max.y.min(other.p_max.y), self.p_max.z.min(other.p_max.z)),
+            p_min: point3(
+                self.p_min.x.max(other.p_min.x),
+                self.p_min.y.max(other.p_min.y),
+                self.p_min.z.max(other.p_min.z),
+            ),
+            p_max: point3(
+                self.p_max.x.min(other.p_max.x),
+                self.p_max.y.min(other.p_max.y),
+                self.p_max.z.min(other.p_max.z),
+            ),
         }
     }
 
@@ -52,14 +75,24 @@ impl AABB3 {
         let mut t1 = ray.t_max;
         for i in 0..3 {
             let mut inv_ray_dir = 1.0 / ray.direction[i];
-            if inv_ray_dir.is_nan() { inv_ray_dir = ray.direction[i].signum() * F::INFINITY; } // convert NaN to +/- infinity so the calculation still works
+            if inv_ray_dir.is_nan() {
+                inv_ray_dir = ray.direction[i].signum() * F::INFINITY;
+            } // convert NaN to +/- infinity so the calculation still works
             let mut t_near = (self.p_min[i] - ray.origin[i]) * inv_ray_dir;
             let mut t_far = (self.p_max[i] - ray.origin[i]) * inv_ray_dir;
-            if t_near > t_far { swap(&mut t_near, &mut t_far )}
+            if t_near > t_far {
+                swap(&mut t_near, &mut t_far)
+            }
             t_far *= 1.0 + 2.0 * gamma(3.0);
-            if t_near > t0 { t0 = t_near; }
-            if t_far < t1 { t1 = t_far; }
-            if t0 > t1 { return (None, None) }
+            if t_near > t0 {
+                t0 = t_near;
+            }
+            if t_far < t1 {
+                t1 = t_far;
+            }
+            if t0 > t1 {
+                return (None, None);
+            }
         }
         (Some(t0), Some(t1))
     }
@@ -74,23 +107,31 @@ impl AABB3 {
 
     /// Returns whether the given point is inside the AABB.
     pub fn inside(self, p: Point3) -> bool {
-        p.x >= self.p_min.x && p.x <= self.p_max.x &&
-        p.y >= self.p_min.y && p.y <= self.p_max.y &&
-        p.z >= self.p_min.z && p.z <= self.p_max.z
+        p.x >= self.p_min.x
+            && p.x <= self.p_max.x
+            && p.y >= self.p_min.y
+            && p.y <= self.p_max.y
+            && p.z >= self.p_min.z
+            && p.z <= self.p_max.z
     }
 
     /// Scales the AABB by a linear factor on all sides equally.
     pub fn expand(self, delta: F) -> AABB3 {
-        AABB3 { p_min: self.p_min - vec3(delta, delta, delta), p_max: self.p_max + vec3(delta, delta, delta) }
+        AABB3 {
+            p_min: self.p_min - vec3(delta, delta, delta),
+            p_max: self.p_max + vec3(delta, delta, delta),
+        }
     }
 
     /// Returns the vector from the minimum point of the AABB to the maximum point.
-    pub fn diagonal(self) -> Vec3 { self.p_max - self.p_min }
+    pub fn diagonal(self) -> Vec3 {
+        self.p_max - self.p_min
+    }
 
     /// Returns the AABB's surface area.
     pub fn surface_area(self) -> F {
         let d = self.diagonal();
-        2.0 * (d.x*d.y + d.x*d.z + d.y*d.z)
+        2.0 * (d.x * d.y + d.x * d.z + d.y * d.z)
     }
 
     /// Returns the AABB's volume.
@@ -102,9 +143,13 @@ impl AABB3 {
     /// Returns the axis index of the longest dimension of the AABB.
     pub fn max_extent(self) -> UI {
         let d = self.diagonal();
-        if d.x > d.y && d.x > d.z { X_AXIS }
-        else if d.y > d.z { Y_AXIS }
-        else { Z_AXIS }
+        if d.x > d.y && d.x > d.z {
+            X_AXIS
+        } else if d.y > d.z {
+            Y_AXIS
+        } else {
+            Z_AXIS
+        }
     }
 
     /// Linearly interpolates two AABBs by the parameter 0 <= t <= 1.
@@ -119,16 +164,26 @@ impl AABB3 {
     /// ??? TODO: Remember what this does.
     pub fn offset(self, p: Point3) -> Vec3 {
         let mut o = p - self.p_min;
-        if self.p_max.x > self.p_min.x { o.x /= self.p_max.x - self.p_min.x; }
-        if self.p_max.y > self.p_min.y { o.y /= self.p_max.y - self.p_min.y; }
-        if self.p_max.z > self.p_min.z { o.z /= self.p_max.z - self.p_min.z; }
+        if self.p_max.x > self.p_min.x {
+            o.x /= self.p_max.x - self.p_min.x;
+        }
+        if self.p_max.y > self.p_min.y {
+            o.y /= self.p_max.y - self.p_min.y;
+        }
+        if self.p_max.z > self.p_min.z {
+            o.z /= self.p_max.z - self.p_min.z;
+        }
         o
     }
 
     /// Returns the centerpoint and radius of a sphere that would fully contain this AABB.
     pub fn bounding_sphere(self) -> (Point3, F) {
         let center = (self.p_min.add(self.p_max)) / 2.0;
-        let radius = if self.inside(center) {distance3(&center, &self.p_max)} else { 0.0 };
+        let radius = if self.inside(center) {
+            distance3(&center, &self.p_max)
+        } else {
+            0.0
+        };
         (center, radius)
     }
 }
@@ -145,9 +200,6 @@ impl Default for AABB3 {
 
 impl From<Point3> for AABB3 {
     fn from(p: Point3) -> Self {
-        Self {
-            p_min: p,
-            p_max: p,
-        }
+        Self { p_min: p, p_max: p }
     }
 }

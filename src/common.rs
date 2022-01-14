@@ -1,5 +1,5 @@
-use std::mem::swap;
 use std::f32::consts::PI;
+use std::mem::swap;
 
 pub type F = f32;
 pub type I = i32;
@@ -18,14 +18,21 @@ pub fn lerp(t: F, v1: F, v2: F) -> F {
 
 pub fn quadratic(a: F, b: F, c: F) -> Option<(F, F)> {
     let discrim = b * b - 4.0 * a * c;
-    if discrim < 0.0 { return None }
+    if discrim < 0.0 {
+        return None;
+    }
     let sqrt_d = discrim.sqrt();
     let q;
-    if b < 0.0 { q = -0.5 * (b - sqrt_d) }
-    else       { q = -0.5 * (b + sqrt_d) }
+    if b < 0.0 {
+        q = -0.5 * (b - sqrt_d)
+    } else {
+        q = -0.5 * (b + sqrt_d)
+    }
     let mut t0 = q / a;
     let mut t1 = c / q;
-    if t0 > t1 { swap(&mut t0, &mut t1); }
+    if t0 > t1 {
+        swap(&mut t0, &mut t1);
+    }
     Some((t0, t1))
 }
 
@@ -41,7 +48,9 @@ pub fn quadratic(a: F, b: F, c: F) -> Option<(F, F)> {
 
 pub fn linear_system(a: [[F; 2]; 2], b: [F; 2]) -> (Option<F>, Option<F>) {
     let det = a[0][0] * a[1][1] - a[0][1] * a[1][0];
-    if det.abs() < 1e-10 { return (None, None) }
+    if det.abs() < 1e-10 {
+        return (None, None);
+    }
     let x0 = (a[1][1] * b[0] - a[0][1] * b[1]) / det;
     let x1 = (a[0][0] * b[1] - a[1][0] * b[0]) / det;
     let out0 = match x0.is_nan() {
