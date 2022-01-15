@@ -1,15 +1,11 @@
 use std::f32::consts::PI;
-use std::ops::BitAnd;
 use std::rc::Rc;
 
 use crate::color::{black, Color3};
 use crate::common::*;
 use crate::interaction::SurfaceInteraction;
-use crate::onb::Onb;
 use crate::ray::Ray;
-use crate::rng::RngGen;
 use crate::sampler::Distribution1D;
-use crate::shape::Shape;
 use crate::texture::{ColorTexture, ScalarTexture};
 use crate::vector::*;
 
@@ -43,6 +39,7 @@ pub trait Bxdf {
     }
     fn sample_f(&self, wo: &Vec3, u: &Point2) -> Option<(Color3, F, Vec3, BXDFType)> {
         let mut wi = Distribution1D::cosine_sample_hemisphere(u);
+        // let mut wi_mut = *wi;
         if wo.z < 0.0 {
             wi.z *= -1.0
         }
@@ -96,24 +93,97 @@ impl Bxdf for LambertianReflection {
 //     }
 // }
 
-pub struct ScatterResult {
+#[derive(Clone)]
+pub struct Bsdf {
     // shape: Rc<dyn Shape>,
     // material: Rc<'a dyn& (BSDFMaterial + 'a)>,
     // pub materials: Vec<Rc<dyn Material>>,
-    pub material: Rc<dyn Material>,
+    // pub material: Rc<dyn Material>,
     pub bxdfs: Vec<Rc<dyn Bxdf>>,
-    pub wo: Vec3,
+    // pub wo: Vec3,
+    // pub wi: Vec3,
     // pub attenuation: Color3,
     // pub pdf_value: F,
+    ss: Vec3,
+    ns: Vec3,
+    ng: Vec3,
+    ts: Vec3,
+}
+
+impl Bsdf {
+    pub fn new(inter: &SurfaceInteraction) -> Self {
+        Self { // TODO: remove all these unwraps
+            bxdfs: vec![],
+            ns: inter.shading.as_ref().unwrap().n,
+            ng: inter.n.unwrap(),
+            ss: inter.shading.as_ref().unwrap().dpdu.normalize(),
+            ts: inter.shading.as_ref().unwrap().n.cross(&inter.shading.as_ref().unwrap().dpdu.normalize())
+        }
+    }
+
+    pub fn add(&mut self, bxdf: Rc<dyn Bxdf>) {
+        self.bxdfs.push(bxdf);
+    }
+
+    pub fn pdf(&self, wo: &Vec3, wi: &Vec3, flags: BXDFType) -> F {
+        self.bxdfs.iter().filter_map(|item| 
+            match item {
+                bxdf if bxdf.bxdf_type() & flags != 0 => Some(bxdf.pdf(wo, wi)),
+                _ => None
+            }
+        ).product()
+    }
+
+    pub fn f(&self, wo_world: &Vec3, wi_world: &Vec3, flags: BXDFType) -> Color3 {
+        let wo = self.world_to_local(wo_world);
+        let wi = self.world_to_local(wi_world);
+        let reflect = wi_world.dot(&self.ng) * wo_world.dot(&self.ng) > 0.0;
+        let mut f = black();
+        for bxdf in self.bxdfs.iter() {
+            if bxdf.bxdf_type() & flags != 0 && (
+                (reflect && (bxdf.bxdf_type() & BXDF_REFLECTION != 0)) ||
+                (!reflect && (bxdf.bxdf_type() & BXDF_TRANSMISSION != 0))
+            ) {
+                if let Some(f_col) = bxdf.f(&wo, &wi) {
+                    f += f_col;
+                }
+            }
+        }
+        f
+    }
+    pub fn sample_f(&self, wo: &Vec3, u: &Point2, flags: BXDFType) -> Option<(Color3, F, Vec3, BXDFType)> {
+        let mut matching_comps = 0;
+        if self.bxdfs.is_empty() { return None }
+        for bxdf in self.bxdfs.iter() {
+            if bxdf.bxdf_type() & flags != 0 {
+                matching_comps += 1;
+            }
+        }
+        let comp;
+        if matching_comps == 0 { comp = 0; }
+        else {
+            comp = ((u.x * matching_comps as F).floor() as I).min(matching_comps - 1);
+        }
+        let bxdf = &self.bxdfs[comp as S];
+        // let u_remapped = point2(u[0] * matching_comps as F - comp as F, u[1]);
+        // let
+        bxdf.sample_f(wo, u)
+    }
+
+    pub fn world_to_local(&self, v: &Vec3) -> Vec3 { vec3(self.ss.dot(v), self.ts.dot(v), self.ns.dot(v)) }
+    pub fn local_to_world(&self, v: &Vec3) -> Vec3 { vec3(
+        self.ss.x * v.x + self.ts.x * v.y + self.ns.x * v.z,
+        self.ss.y * v.x + self.ts.y * v.y + self.ns.y * v.z,
+        self.ss.z * v.x + self.ts.z * v.y + self.ns.z * v.z,
+    ) }
 }
 
 pub trait Material {
-    fn scatter_ray(
+    fn calculate_bsdf(
         &self,
-        ray: &mut Ray,
-        inter: &SurfaceInteraction,
-        rng: &RngGen,
-    ) -> Option<ScatterResult>;
+        inter: &mut SurfaceInteraction,
+        // rng: &RngGen,
+    );
     fn scattering_pdf(&self, _ray: &Ray, _inter: &SurfaceInteraction) -> F;
 }
 
@@ -125,12 +195,11 @@ pub struct Matte {
 }
 
 impl Material for Matte {
-    fn scatter_ray(
+    fn calculate_bsdf(
         &self,
-        ray: &mut Ray,
-        inter: &SurfaceInteraction,
-        rng: &RngGen,
-    ) -> Option<ScatterResult> {
+        inter: &mut SurfaceInteraction,
+        // rng: &RngGen,
+    ) {
         // let d = Distribution1D::cosine_sample_hemisphere(&point2(rng.sample_0_1(), rng.sample_0_1()));
         // let onb = ONB::new_from_w(&inter.n);
         // let new_d = onb.local(&d);
@@ -139,28 +208,21 @@ impl Material for Matte {
 
         let r = self.kd.eval(inter);
         // let adjusted_direction = vec3(d.x*inter.n.x, d.y*inter.n.y, d.z*inter.n.z);
-        let mut bxdfs: Vec<Rc<dyn Bxdf>> = vec![];
+        // let mut bxdfs: Vec<Rc<dyn Bxdf>> = vec![];
         if r != black() {
             match &self.sigma {
                 Some(sigma) => {
                     let sig = sigma.eval(inter).clamp(0.0, 90.0);
                     if sig == 0.0 {
-                        bxdfs.push(Rc::new(LambertianReflection::new(r)));
+                        inter.add_bxdf(Rc::new(LambertianReflection::new(r)));
                     } else {
                         // interacted_materials.push(Rc::new(OrenNayar::new(r, sig)));
                     }
                 }
-                None => return None,
+                None => {}
             }
         }
-
-        Some(ScatterResult {
-            // shape: inter.shape.clone(),
-            material: Rc::new(self.clone()),
-            bxdfs,
-            wo: -ray.direction,
-            // attenuation: r,
-        })
+        
     }
 
     fn scattering_pdf(&self, ray: &Ray, inter: &SurfaceInteraction) -> F {

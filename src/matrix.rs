@@ -1,5 +1,3 @@
-use std::ops::{Index, IndexMut, Mul};
-
 extern crate nalgebra_glm as glm;
 use crate::common::*;
 

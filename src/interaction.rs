@@ -3,9 +3,10 @@ extern crate nalgebra_glm as glm;
 use std::rc::Rc;
 
 use crate::common::*;
+use crate::material::{Bsdf, Bxdf};
 use crate::primitive::Primitive;
 use crate::ray::Ray;
-use crate::shape::Shape;
+use crate::rng::RngGen;
 use crate::vector::*;
 
 #[derive(Debug, Default, Clone)]
@@ -23,7 +24,7 @@ pub struct SurfaceInteraction {
     pub p: Point3,
     pub time: F,
     // pub p_error: Vec3,
-    // pub wo: Vec3,
+    pub wo: Option<Vec3>,
     pub n: Option<Normal3>,
 
     pub uv: Option<Point2>,
@@ -34,6 +35,7 @@ pub struct SurfaceInteraction {
     pub shading: Option<Shading>,
 
     pub primitive: Option<Rc<Primitive>>,
+    pub bsdf: Option<Bsdf>,
 }
 
 // impl Default for SurfaceInteraction {
@@ -59,17 +61,19 @@ impl SurfaceInteraction {
 
     pub fn new(
         p: Point3,
+        wo: Vec3,
         uv: Point2,
         dpdu: Vec3,
         dpdv: Vec3,
         time: F,
         primitive: Option<Rc<Primitive>>,
+        bsdf: Option<Bsdf>,
     ) -> Self {
         let n = dpdu.cross(&dpdv).normalize();
         let mut out = Self {
             p,
             uv: Some(uv),
-            // wo,
+            wo: Some(wo),
             n: Some(n),
             dpdu: Some(dpdu),
             dpdv: Some(dpdv),
@@ -78,23 +82,31 @@ impl SurfaceInteraction {
             time,
             shading: Some(Shading { n, dpdu, dpdv }),
             primitive,
+            bsdf,
             // shape,
         };
+        out.create_bsdf();
+        
         // out.set_shading_geometry(dpdu, dpdv, false); // TODO: get actual authoritative value
         out
     }
 
+    pub fn create_bsdf(&mut self) {
+        self.bsdf = Some(Bsdf::new(self));
+    }
+
     pub fn new_with_normal(
         p: Point3,
+        wo: Vec3,
         uv: Point2,
         n: Normal3,
         time: F,
         primitive: Option<Rc<Primitive>>,
     ) -> Self {
-        Self {
+        let mut out = Self {
             p,
             uv: Some(uv),
-            // wo,
+            wo: Some(wo),
             n: Some(n),
             dpdu: None,
             dpdv: None,
@@ -106,19 +118,38 @@ impl SurfaceInteraction {
                 dpdu: vec3(0.0, 0.0, 0.0),
                 dpdv: vec3(0.0, 0.0, 0.0),
             }),
-        }
+            bsdf: None,
+        };
+        out.create_bsdf();
+        out
     }
 
     pub fn new_general(p: Point3, time: F) -> Self {
         Self {
             p,
             time,
+            wo: None,
             uv: None,
             n: None,
             dpdu: None,
             dpdv: None,
             shading: None,
             primitive: None,
+            bsdf: None,
+        }
+    }
+
+    pub fn add_bxdf(&mut self, bxdf: Rc<dyn Bxdf>) {
+        if let Some(ref mut bsdf) = self.bsdf {
+            bsdf.add(bxdf);
+        }
+    }
+
+    pub fn scatter(&mut self, ray: &mut Ray, rng: &RngGen) {
+        ray.origin = self.p;
+        // ray.direction = self.bsdf.unwrap().sample_f(&self.p, &rng.uniform_sample_point2(), BXDF_ALL).unwrap();
+        if let Some(primitive) = self.primitive.clone() {
+            primitive.scatter(self, rng);
         }
     }
 
@@ -135,8 +166,12 @@ impl SurfaceInteraction {
     //     // self.shading.dndv = dndvs;
     // }
 
+    pub fn spawn_ray_to_point(&self, p: &Point3) -> Ray {
+        Ray::new_non_differential(self.p, p - self.p, 0.0001, 0.9999, 0.0)
+    }
+
     pub fn spawn_ray_to(&self, other: &SurfaceInteraction) -> Ray {
         // let w = other.p-self.p;
-        Ray::new_non_differential(self.p, other.p - self.p, 0.0001, 0.9999, 0.0)
+        self.spawn_ray_to_point(&other.p)
     }
 }

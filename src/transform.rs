@@ -9,6 +9,7 @@ use crate::aabb::AABB3;
 use crate::common::*;
 use crate::interaction::Shading;
 use crate::interaction::SurfaceInteraction;
+use crate::material::Bsdf;
 use crate::matrix::*;
 use crate::quaternion::Quaternion;
 use crate::ray::Ray;
@@ -112,9 +113,9 @@ impl Transform {
     }
 
     pub fn has_scale(&self) -> bool {
-        let la2 = &self.fvec(vec3(1.0, 0.0, 0.0)).magnitude_squared();
-        let lb2 = &self.fvec(vec3(0.0, 1.0, 0.0)).magnitude_squared();
-        let lc2 = &self.fvec(vec3(0.0, 0.0, 1.0)).magnitude_squared();
+        let la2 = &self.fvec(&vec3(1.0, 0.0, 0.0)).magnitude_squared();
+        let lb2 = &self.fvec(&vec3(0.0, 1.0, 0.0)).magnitude_squared();
+        let lc2 = &self.fvec(&vec3(0.0, 0.0, 1.0)).magnitude_squared();
         let not_one = |x: &F| *x < 0.999 || *x > 1.001;
         not_one(la2) || not_one(lb2) || not_one(lc2)
     }
@@ -252,20 +253,20 @@ impl Transform {
     }
 
     /// IMPORTANT: Only use for Vectors!
-    pub fn forward_vector_transform(self, a: Vec3) -> Vec3 {
-        self.m_forward.transform_vector(&a)
+    pub fn forward_vector_transform(self, a: &Vec3) -> Vec3 {
+        self.m_forward.transform_vector(a)
         // else { point3(x, y, z) / w }
     }
     /// IMPORTANT: Only use for Vectors!
-    pub fn fvec(self, a: Vec3) -> Vec3 {
+    pub fn fvec(self, a: &Vec3) -> Vec3 {
         self.forward_vector_transform(a)
     }
     /// IMPORTANT: Only use for Vectors!
-    pub fn inverse_vector_transform(self, a: Vec3) -> Vec3 {
-        self.m_inverse.transform_vector(&a)
+    pub fn inverse_vector_transform(self, a: &Vec3) -> Vec3 {
+        self.m_inverse.transform_vector(a)
     }
     /// IMPORTANT: Only use for Vectors!
-    pub fn ivec(self, a: Vec3) -> Vec3 {
+    pub fn ivec(self, a: &Vec3) -> Vec3 {
         self.inverse_vector_transform(a)
     }
 
@@ -280,7 +281,7 @@ impl Transform {
     //     // else { point3(x, y, z) / w }
     // }
     // /// IMPORTANT: Only use for Normals!
-    pub fn fnorm(self, a: Normal3) -> Normal3 {
+    pub fn fnorm(self, a: &Normal3) -> Normal3 {
         self.forward_vector_transform(a)
     }
     // /// IMPORTANT: Only use for Normals!
@@ -293,13 +294,13 @@ impl Transform {
     //     normal3(x, y, z)
     // }
     // /// IMPORTANT: Only use for Normals!
-    pub fn inorm(self, a: Normal3) -> Normal3 {
+    pub fn inorm(self, a: &Normal3) -> Normal3 {
         self.inverse_vector_transform(a)
     }
 
     pub fn forward_ray_transform(self, a: &Ray) -> Ray {
         let o = self.fpt(a.origin);
-        let d = self.fvec(a.direction);
+        let d = self.fvec(&a.direction);
         Ray {
             origin: o,
             direction: d,
@@ -312,7 +313,7 @@ impl Transform {
 
     pub fn inverse_ray_transform(self, a: &Ray) -> Ray {
         let o = self.ipt(a.origin);
-        let d = self.ivec(a.direction);
+        let d = self.ivec(&a.direction);
         Ray {
             origin: o,
             direction: d,
@@ -370,26 +371,32 @@ impl Transform {
         let dpdv;
         let n;
         let shading;
+        let wo;
         if let Some(a_dpdu) = a.dpdu {
-            dpdu = Some(self.fvec(a_dpdu));
+            dpdu = Some(self.fvec(&a_dpdu));
         } else {
             dpdu = None;
         }
         if let Some(a_dpdv) = a.dpdv {
-            dpdv = Some(self.fvec(a_dpdv));
+            dpdv = Some(self.fvec(&a_dpdv));
         } else {
             dpdv = None;
         }
         if let Some(a_n) = a.n {
-            n = Some(self.fnorm(a_n).normalize());
+            n = Some(self.fnorm(&a_n).normalize());
         } else {
             n = None;
         }
+        if let Some(a_wo) = a.wo {
+            wo = Some(self.fvec(&a_wo));
+        } else {
+            wo = None;
+        }
         if let Some(a_shading) = a.shading {
             shading = Some(Shading {
-                n: self.fnorm(a_shading.n),
-                dpdu: self.fvec(a_shading.dpdu),
-                dpdv: self.fvec(a_shading.dpdv),
+                n: self.fnorm(&a_shading.n),
+                dpdu: self.fvec(&a_shading.dpdu),
+                dpdv: self.fvec(&a_shading.dpdv),
                 // dndu: self.fnorm(a.shading.dndu),
                 // dndv: self.fnorm(a.shading.dndv),
             });
@@ -399,7 +406,7 @@ impl Transform {
         SurfaceInteraction {
             p: self.fpt(a.p),
             n,
-            // wo: self.fvec(a.wo),
+            wo,
             time: a.time,
             uv: a.uv,
             dpdu,
@@ -410,6 +417,7 @@ impl Transform {
             primitive: a.primitive,
             // p_error: a.p_error,
             // shape: a.shape,
+            bsdf: a.bsdf,
         }
     }
 }

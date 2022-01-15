@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use na::ComplexField;
 
 use crate::common::{F, I};
@@ -49,6 +51,18 @@ pub fn to_na_point3(a: Vec3) -> NAPoint3 {
 }
 pub fn from_na_point3(a: NAPoint3) -> Vec3 {
     vec3(a.x, a.y, a.z)
+}
+
+pub fn spherical_theta(v: &Vec3) -> F {
+    F::acos(F::clamp(v.z, -1.0, 1.0))
+}
+
+pub fn spherical_phi(v: &Vec3) -> F {
+    let p_ = F::atan2(v.y, v.x);
+    match p_ {
+        p if p < 0.0 => p + 2.0 * PI,
+        p => p
+    }
 }
 
 // Standard 3d float vector.

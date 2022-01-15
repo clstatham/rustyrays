@@ -28,4 +28,10 @@ pub trait Shape {
     fn pdf(&self, _ref: SurfaceInteraction) -> F {
         1.0 / self.area()
     }
+    fn pdf_wi(&self, inter: &SurfaceInteraction, wi: &Vec3) -> F {
+        let mut ray = inter.spawn_ray_to_point(wi);
+        if let Some(isect_light) = self.intersect(&mut ray, false) {
+            (inter.p - isect_light.p).magnitude_squared() / (isect_light.n.unwrap().dot(&-wi).abs() * self.area())
+        } else { 0.0 }
+    }
 }

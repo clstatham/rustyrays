@@ -1,4 +1,3 @@
-use std::f32::consts::PI;
 use std::rc::Rc;
 
 extern crate tobj;
@@ -10,7 +9,6 @@ use crate::common::*;
 use crate::interaction::SurfaceInteraction;
 use crate::ray::Ray;
 use crate::shape::*;
-use crate::transform::Transform;
 use crate::vector::*;
 
 #[derive(Debug, Clone)]
@@ -86,7 +84,7 @@ impl Shape for Triangle {
         let texcoord = point2(0.0, 0.0); // TODO: add actual textures
 
         Some(SurfaceInteraction::new_with_normal(
-            p, texcoord, n, ray.time, None,
+            p, -ray.direction, texcoord, n, ray.time, None,
         ))
     }
 
@@ -223,7 +221,11 @@ impl Shape for Mesh {
         //     point3(-self.radius, -self.radius, self.z_min),
         //     point3(self.radius, self.radius, self.z_max),
         // )
-        todo!()
+        let mut aabb = AABB3::default();
+        for triangle in self.bvh.iter() {
+            aabb = aabb.combine(triangle.object_bound());
+        }
+        aabb
     }
 
     fn intersect(&self, ray: &mut Ray, test_alpha_texture: bool) -> Option<SurfaceInteraction> {
@@ -234,7 +236,11 @@ impl Shape for Mesh {
         for node in self.bvh.iter() {
             result = node.intersect(ray, test_alpha_texture).or(result);
         }
-        result
+        if let Some(mut inter) = result {
+            inter.create_bsdf();
+            return Some(inter)
+        }
+        None
     }
 
     fn area(&self) -> F {

@@ -84,10 +84,12 @@ impl Shape for Sphere {
         let dpdv = vec3(p.z * cos_phi, p.z * sin_phi, -self.radius * theta.sin()) * PI;
         Some(SurfaceInteraction::new(
             p,
+            -ray.direction,
             point2(u, v),
             dpdu,
             dpdv,
             time,
+            None,
             None,
         ))
     }

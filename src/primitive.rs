@@ -6,14 +6,14 @@ use crate::interaction::SurfaceInteraction;
 use crate::light::Light;
 use crate::material::*;
 use crate::ray::Ray;
+use crate::rng::RngGen;
 use crate::shape::*;
 use crate::transform::Transform;
-use crate::vector::*;
 
 #[derive(Clone)]
 pub struct Primitive {
     pub shape: Rc<dyn Shape>,
-    pub material: Option<Rc<dyn Material>>,
+    pub material: Rc<dyn Material>,
     // TODO: add material, light properties
     pub light: Option<Rc<dyn Light>>,
     pub object_to_world: Transform,
@@ -23,7 +23,7 @@ impl Primitive {
     pub fn new(
         shape: Rc<dyn Shape>,
         object_to_world: Transform,
-        material: Option<Rc<dyn Material>>,
+        material: Rc<dyn Material>,
         light: Option<Rc<dyn Light>>,
     ) -> Self {
         Self {
@@ -32,6 +32,12 @@ impl Primitive {
             material,
             light,
         }
+    }
+
+    pub fn scatter(&self, inter: &mut SurfaceInteraction, rng: &RngGen) {
+        // if let Some(material) = self.material.clone() {
+            // material.calculate_bsdf(inter, rng);
+        // }
     }
 }
 impl Shape for Primitive {
@@ -44,6 +50,7 @@ impl Shape for Primitive {
             Some(mut inter) => {
                 ray.t_max = transformed_ray.t_max;
                 inter.primitive = Some(Rc::new(self.clone()));
+                self.material.calculate_bsdf(&mut inter);
                 Some(
                     self.object_to_world
                         .forward_surface_interaction_transform(inter),
