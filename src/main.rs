@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
+#![allow(clippy::too_many_arguments)]
 mod aabb;
 mod camera;
 mod color;
@@ -15,17 +16,19 @@ mod primitive;
 mod quaternion;
 mod ray;
 mod rng;
-mod sampler;
+mod distributions;
 mod scene;
 mod shape;
 mod sphere;
-mod tests;
 mod texture;
 mod transform;
-mod trianglemesh;
 mod vector;
+mod media;
 
-use std::rc::Rc;
+
+use rayon::{prelude::*};
+
+use std::sync::Arc;
 
 use beryllium::{
     event::Event,
@@ -35,11 +38,13 @@ use beryllium::{
 use camera::SimpleCamera;
 use fermium::keycode;
 use integrator::{Integrator, PathIntegrator};
-use light::{ConstantInfiniteLight, PointLight};
+use light::{ConstantInfiniteLight};
 use material::Matte;
+use media::MediumInterface;
 use mesh::Mesh;
 use pixels::{Pixels, SurfaceTexture};
 use primitive::Primitive;
+use rayon::{iter::{IntoParallelIterator, IndexedParallelIterator, ParallelBridge, ParallelIterator}, slice::ParallelSlice};
 use rng::RngGen;
 use scene::Scene;
 use sphere::Sphere;
@@ -55,7 +60,7 @@ const WIDTH: S = 1280 / 3;
 const HEIGHT: S = 720 / 3;
 const ASPECT_RATIO: f32 = (WIDTH as f32) / (HEIGHT as f32);
 
-struct World {
+struct World where Self: Send + Sync {
     pub scene: Scene,
     pub cam: SimpleCamera,
     pub integrator: PathIntegrator,
@@ -81,7 +86,7 @@ impl World {
         self.integrator.preprocess(&self.scene, &self.cam);
     }
 
-    pub fn render_pixel(&self, frame: &mut [u8], pixel_idx: S, x: S, y: S) {
+    pub fn render_pixel(&self, x: S, y: S) -> [u8; 4] {
         // if x == WIDTH/2 && y == HEIGHT/2 {
         //     println!("At Center");
         // }
@@ -95,13 +100,9 @@ impl World {
             out_col += col / self.samples_per_pixel as F;
         }
 
-        let pix = color_to_pixel(out_col);
+        color_to_pixel(out_col)
         // let out_idx = xy.y as S * WIDTH as S + xy.x as S;
         // let out_idx = pixel_idx;
-        frame[4 * pixel_idx] = pix[0];
-        frame[4 * pixel_idx + 1] = pix[1];
-        frame[4 * pixel_idx + 2] = pix[2];
-        frame[4 * pixel_idx + 3] = pix[3];
     }
 }
 
@@ -128,32 +129,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Box::new(Sphere::new(
             //     false, 20.0, -1.0, 1.0, 2.0*PI)),
             Primitive::new(
-                Rc::new(Sphere::new(
+                Arc::new(Sphere::new(
                     false,
                     100.0,
                     Transform::new_translate(vec3(0.0, -100.01, 0.0)),
+                    MediumInterface::new_empty(),
                 )),
-                Rc::new(Matte {
-                    kd: Rc::new(SolidColor {
+                Arc::new(Matte {
+                    kd: Arc::new(SolidColor {
                         color: color3(0.1, 0.1, 0.1),
                     }),
                     bump_map: None,
-                    sigma: Some(Rc::new(ConstantValue { val: 0.0 })),
+                    sigma: Some(Arc::new(ConstantValue { val: 0.0 })),
                 }),
                 None,
             ),
             Primitive::new(
-                Rc::new(Sphere::new(
+                Arc::new(Sphere::new(
                     false,
                     3.0,
                     Transform::new_translate(vec3(0.0, 3.0, 0.0)),
+                    MediumInterface::new_empty(),
                 )),
-                Rc::new(Matte {
-                    kd: Rc::new(SolidColor {
+                Arc::new(Matte {
+                    kd: Arc::new(SolidColor {
                         color: color3(1.0, 0.1, 0.1),
                     }),
                     bump_map: None,
-                    sigma: Some(Rc::new(ConstantValue { val: 0.0 })),
+                    sigma: Some(Arc::new(ConstantValue { val: 0.0 })),
                 }),
                 None,
             ),
@@ -161,27 +164,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Mesh::load_obj(
                     "./cube.obj".to_string(),
                     Transform::new_translate(vec3(0.0, 2.0, 4.0)),
+                    MediumInterface::new_empty(),
                 )
                 .expect("Error loading model!"),
-                Rc::new(Matte {
-                    kd: Rc::new(SolidColor {
+                Arc::new(Matte {
+                    kd: Arc::new(SolidColor {
                         color: color3(0.1, 0.1, 1.0),
                     }),
                     bump_map: None,
-                    sigma: Some(Rc::new(ConstantValue { val: 0.0 })),
+                    sigma: Some(Arc::new(ConstantValue { val: 0.0 })),
                 }),
                 None,
             ),
         ],
         lights: vec![
-            Box::new(PointLight::new(
-                Transform::new_translate(vec3(-5.0, 8.0, 0.0)),
-                color3(1.0, 1.0, 1.0) * 100.0,
-            )),
-            // Box::new(ConstantInfiniteLight::new(
-            //     Transform::new_identity(),
-            //     sky,
-            // ))
+            // Box::new(PointLight::new(
+            //     Transform::new_translate(vec3(-5.0, 8.0, 0.0)),
+            //     color3(1.0, 1.0, 1.0),
+            //     100.0,
+            // )),
+            Box::new(ConstantInfiniteLight::new(
+                Transform::new_identity(),
+                sky,
+                1.0,
+            ))
         ],
     };
     // let cam = Camera::new(
@@ -196,11 +202,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // );
     let cam = SimpleCamera::new(point3(10.0, 10.0, 10.0), point3(0.0, 0.0, 0.0), 40.0);
 
-    let mut world = World::new(objs, cam, 8, 10);
+    let mut world = World::new(objs, cam, 8, 100);
 
     world.preprocess();
 
-    let mut current_frame = 0;
+    // let mut current_frame = 0;
+    
+
+    // Draw the current frame
+    let frame = pixels.get_frame();
+    // let chunker = ImageChunker::new(pixels, 1, 2, WIDTH, HEIGHT);
+    // let chunks = chunker.request_frame_chunks();
+    // let i = current_frame % frame.chunks_exact_mut(4).len();
+
+    // let x = i % WIDTH as S;
+    // let y = i / WIDTH as S;
+
+    // world.draw_next_pixel(i, x, y, frame);
+    let chunk_size = HEIGHT / 5;
+    assert_eq!(HEIGHT % chunk_size, 0);
+    println!("Rendering...");
+    frame.par_chunks_exact_mut(4 * chunk_size).enumerate().for_each(|(chunk_idx, chunk)| {
+        let chunk_offset = chunk_size * chunk_idx;
+        chunk.chunks_exact_mut(4).enumerate().for_each(|(pixel_idx, pixel)| {
+            let i = chunk_offset + pixel_idx;
+            let x = i % WIDTH as S;
+            let y = i / WIDTH as S;
+            let rendered_pixel = world.render_pixel(x, y);
+            pixel[0] = rendered_pixel[0];
+            pixel[1] = rendered_pixel[1];
+            pixel[2] = rendered_pixel[2];
+            pixel[3] = rendered_pixel[3];
+        });
+    });
+    pixels.render()?;
+    println!("Done!");
+
     'game_loop: loop {
         while let Some(event) = sdl.poll_event() {
             match event {
@@ -219,21 +256,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        // Draw the current frame
-        let frame = pixels.get_frame();
-        let i = current_frame % frame.chunks_exact_mut(4).len();
+        
+            
+            // if current_frame % (HEIGHT * 5) as S == 0 {
+                
+            //     println!("Rendered scanline {}/{}", y, HEIGHT);
+            // }
 
-        let x = i % WIDTH as S;
-        let y = i / WIDTH as S;
-
-        // world.draw_next_pixel(i, x, y, frame);
-        world.render_pixel(frame, i, x, y);
-        if current_frame % (HEIGHT * 5) as S == 0 {
-            pixels.render()?;
-            println!("Rendered scanline {}/{}", y, HEIGHT);
-        }
-
-        current_frame += 1;
+        // current_frame += 1;
     }
 
     Ok(())

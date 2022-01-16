@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use rand::prelude::IteratorRandom;
 
@@ -6,7 +6,7 @@ use crate::{
     camera::SimpleCamera,
     color::{black, color3, Color3},
     common::{F, S},
-    interaction::SurfaceInteraction,
+    interaction::Interaction,
     light::Light,
     material::{BXDF_ALL, BXDF_SPECULAR},
     ray::Ray,
@@ -32,17 +32,18 @@ pub fn power_heuristic(nf: S, f_pdf: F, ng: S, g_pdf: F) -> F {
     (f * f) / (f * f + g * g)
 }
 
+#[allow(clippy::borrowed_box)]
 pub fn estimate_direct(
-    inter: &SurfaceInteraction,
+    inter: &Interaction,
     u_scattering: Point2,
-    light: &Box<dyn Light>,
+    light: &Box<dyn Light + Send + Sync>,
     u_light: Point2,
     scene: &Scene,
     rng: &RngGen,
 ) -> Color3 {
     let flags = BXDF_ALL & !BXDF_SPECULAR;
     let mut ld = black();
-    if let Some(mut li) = light.sample_li(Rc::new(inter.clone()), u_light) {
+    if let Some(mut li) = light.sample_li(Arc::new(inter.clone()), u_light) {
         if li.pdf > 0.0 && li.col != black() {
             let f = inter
                 .bsdf
@@ -78,7 +79,7 @@ pub fn estimate_direct(
         if f != black() && scattering_pdf > 0.0 {
             let mut weight = 1.0;
             if !sampled_specular {
-                let li_pdf = light.pdf_li(&inter, &wi);
+                let li_pdf = light.pdf_li(inter, &wi);
                 if li_pdf == 0.0 {
                     return ld;
                 }
@@ -101,7 +102,7 @@ pub fn estimate_direct(
 }
 
 pub fn uniform_sample_all_lights(
-    inter: &SurfaceInteraction,
+    inter: &Interaction,
     scene: &Scene,
     n_light_samples: Vec<S>,
     rng: &RngGen,
@@ -133,7 +134,7 @@ pub fn uniform_sample_all_lights(
     out_color
 }
 
-pub fn uniform_sample_one_light(inter: &SurfaceInteraction, scene: &Scene, rng: &RngGen) -> Color3 {
+pub fn uniform_sample_one_light(inter: &Interaction, scene: &Scene, rng: &RngGen) -> Color3 {
     if scene.lights.is_empty() {
         return black();
     }

@@ -1,11 +1,8 @@
 use crate::color::Color3;
 use crate::common::*;
-use crate::interaction::SurfaceInteraction;
-use crate::rng::RngGen;
-use crate::vector::*;
-
+use crate::interaction::Interaction;
 pub trait ScalarTexture {
-    fn eval(&self, inter: &SurfaceInteraction) -> F;
+    fn eval(&self, inter: &Interaction) -> F;
 }
 
 pub struct ConstantValue {
@@ -13,13 +10,13 @@ pub struct ConstantValue {
 }
 
 impl ScalarTexture for ConstantValue {
-    fn eval(&self, inter: &SurfaceInteraction) -> F {
+    fn eval(&self, inter: &Interaction) -> F {
         self.val
     }
 }
 
 pub trait ColorTexture {
-    fn eval(&self, inter: &SurfaceInteraction) -> Color3;
+    fn eval(&self, inter: &Interaction) -> Color3;
 }
 
 pub struct SolidColor {
@@ -27,7 +24,7 @@ pub struct SolidColor {
 }
 
 impl ColorTexture for SolidColor {
-    fn eval(&self, inter: &SurfaceInteraction) -> Color3 {
+    fn eval(&self, inter: &Interaction) -> Color3 {
         self.color
     }
 }

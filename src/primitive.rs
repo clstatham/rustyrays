@@ -1,28 +1,27 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::aabb::AABB3;
 use crate::common::*;
-use crate::interaction::SurfaceInteraction;
+use crate::interaction::Interaction;
 use crate::light::Light;
 use crate::material::*;
 use crate::ray::Ray;
 use crate::rng::RngGen;
 use crate::shape::*;
-use crate::transform::Transform;
 
 #[derive(Clone)]
 pub struct Primitive {
-    pub shape: Rc<dyn Shape>,
-    pub material: Rc<dyn Material>,
+    pub shape: Arc<dyn Shape + Send + Sync>,
+    pub material: Arc<dyn Material + Send + Sync>,
     // TODO: add material, light properties
-    pub light: Option<Rc<dyn Light>>,
+    pub light: Option<Arc<dyn Light + Send + Sync>>,
 }
 
 impl Primitive {
     pub fn new(
-        shape: Rc<dyn Shape>,
-        material: Rc<dyn Material>,
-        light: Option<Rc<dyn Light>>,
+        shape: Arc<dyn Shape + Send + Sync>,
+        material: Arc<dyn Material + Send + Sync>,
+        light: Option<Arc<dyn Light + Send + Sync>>,
     ) -> Self {
         Self {
             shape,
@@ -31,14 +30,14 @@ impl Primitive {
         }
     }
 
-    pub fn scatter(&self, inter: &mut SurfaceInteraction, rng: &RngGen) {
+    pub fn scatter(&self, inter: &mut Interaction, rng: &RngGen) {
         // if let Some(material) = self.material.clone() {
         // material.calculate_bsdf(inter, rng);
         // }
     }
 }
 impl Shape for Primitive {
-    fn intersect(&self, ray: &mut Ray, test_alpha_texture: bool) -> Option<SurfaceInteraction> {
+    fn intersect(&self, ray: &mut Ray, test_alpha_texture: bool) -> Option<Interaction> {
         let mut transformed_ray = self.shape.shape_data().object_to_world.iray(ray);
         match self
             .shape
@@ -46,7 +45,7 @@ impl Shape for Primitive {
         {
             Some(mut inter) => {
                 ray.t_max = transformed_ray.t_max;
-                inter.primitive = Some(Rc::new(self.clone()));
+                inter.primitive = Some(Arc::new(self.clone()));
                 self.material.calculate_bsdf(&mut inter);
                 Some(
                     self.shape
@@ -79,15 +78,15 @@ impl Shape for Primitive {
         self.shape.area()
     }
 
-    fn sample_u(&self, u: &crate::vector::Point2) -> SurfaceInteraction {
+    fn sample_u(&self, u: &crate::vector::Point2) -> Interaction {
         self.shape.sample_u(u)
     }
 
     fn sample_inter(
         &self,
-        inter: &SurfaceInteraction,
+        inter: &Interaction,
         u: &crate::vector::Point2,
-    ) -> SurfaceInteraction {
+    ) -> Interaction {
         self.shape.sample_inter(inter, u)
     }
 }

@@ -1,11 +1,11 @@
 use std::f32::consts::PI;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::color::{black, Color3};
 use crate::common::*;
-use crate::interaction::SurfaceInteraction;
+use crate::interaction::Interaction;
 use crate::ray::Ray;
-use crate::sampler::Distribution1D;
+use crate::distributions::Distribution1D;
 use crate::texture::{ColorTexture, ScalarTexture};
 use crate::vector::*;
 
@@ -95,11 +95,11 @@ impl Bxdf for LambertianReflection {
 
 #[derive(Clone)]
 pub struct Bsdf {
-    // shape: Rc<dyn Shape>,
-    // material: Rc<'a dyn& (BSDFMaterial + 'a)>,
-    // pub materials: Vec<Rc<dyn Material>>,
-    // pub material: Rc<dyn Material>,
-    pub bxdfs: Vec<Rc<dyn Bxdf>>,
+    // shape: Arc<dyn Shape>,
+    // material: Arc<'a dyn& (BSDFMaterial + 'a)>,
+    // pub materials: Vec<Arc<dyn Material>>,
+    // pub material: Arc<dyn Material>,
+    pub bxdfs: Vec<Arc<dyn Bxdf + Send + Sync>>,
     // pub wo: Vec3,
     // pub wi: Vec3,
     // pub attenuation: Color3,
@@ -111,7 +111,7 @@ pub struct Bsdf {
 }
 
 impl Bsdf {
-    pub fn new(inter: &SurfaceInteraction) -> Self {
+    pub fn new(inter: &Interaction) -> Self {
         Self {
             // TODO: remove all these unwraps
             bxdfs: vec![],
@@ -127,7 +127,7 @@ impl Bsdf {
         }
     }
 
-    pub fn add(&mut self, bxdf: Rc<dyn Bxdf>) {
+    pub fn add(&mut self, bxdf: Arc<dyn Bxdf + Send + Sync>) {
         self.bxdfs.push(bxdf);
     }
 
@@ -200,23 +200,23 @@ impl Bsdf {
 pub trait Material {
     fn calculate_bsdf(
         &self,
-        inter: &mut SurfaceInteraction,
+        inter: &mut Interaction,
         // rng: &RngGen,
     );
-    fn scattering_pdf(&self, _ray: &Ray, _inter: &SurfaceInteraction) -> F;
+    fn scattering_pdf(&self, _ray: &Ray, _inter: &Interaction) -> F;
 }
 
 #[derive(Clone)]
 pub struct Matte {
-    pub kd: Rc<dyn ColorTexture>,
-    pub sigma: Option<Rc<dyn ScalarTexture>>,
-    pub bump_map: Option<Rc<dyn ScalarTexture>>,
+    pub kd: Arc<dyn ColorTexture + Send + Sync>,
+    pub sigma: Option<Arc<dyn ScalarTexture + Send + Sync>>,
+    pub bump_map: Option<Arc<dyn ScalarTexture + Send + Sync>>,
 }
 
 impl Material for Matte {
     fn calculate_bsdf(
         &self,
-        inter: &mut SurfaceInteraction,
+        inter: &mut Interaction,
         // rng: &RngGen,
     ) {
         // let d = Distribution1D::cosine_sample_hemisphere(&point2(rng.sample_0_1(), rng.sample_0_1()));
@@ -227,15 +227,15 @@ impl Material for Matte {
 
         let r = self.kd.eval(inter);
         // let adjusted_direction = vec3(d.x*inter.n.x, d.y*inter.n.y, d.z*inter.n.z);
-        // let mut bxdfs: Vec<Rc<dyn Bxdf>> = vec![];
+        // let mut bxdfs: Vec<Arc<dyn Bxdf>> = vec![];
         if r != black() {
             match &self.sigma {
                 Some(sigma) => {
                     let sig = sigma.eval(inter).clamp(0.0, 90.0);
                     if sig == 0.0 {
-                        inter.add_bxdf(Rc::new(LambertianReflection::new(r)));
+                        inter.add_bxdf(Arc::new(LambertianReflection::new(r)));
                     } else {
-                        // interacted_materials.push(Rc::new(OrenNayar::new(r, sig)));
+                        // interacted_materials.push(Arc::new(OrenNayar::new(r, sig)));
                     }
                 }
                 None => {}
@@ -243,7 +243,7 @@ impl Material for Matte {
         }
     }
 
-    fn scattering_pdf(&self, ray: &Ray, inter: &SurfaceInteraction) -> F {
+    fn scattering_pdf(&self, ray: &Ray, inter: &Interaction) -> F {
         if let Some(n) = inter.n {
             match n.dot(&ray.direction) {
                 cos_theta if cos_theta > 0.0 => Distribution1D::cosine_hemisphere_pdf(cos_theta),

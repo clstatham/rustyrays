@@ -1,7 +1,5 @@
 use std::f32::consts::PI;
 
-use nalgebra::ComplexField;
-
 use crate::{
     common::*,
     vector::{point2, vec3, Point2, Vec3},

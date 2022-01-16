@@ -2,7 +2,7 @@ use crate::common::*;
 use crate::vector::*;
 
 /// A simulated ray of light.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone)]
 pub struct Ray {
     pub origin: Point3,
     pub direction: Vec3,
@@ -10,6 +10,8 @@ pub struct Ray {
     pub t_min: F,
     pub t_max: F,
     pub time: F,
+
+    // pub medium: Option<Arc<dyn Medium>>,
 
     pub has_differentials: bool,
     pub rx_origin: Option<Point3>,
@@ -32,6 +34,7 @@ impl Default for Ray {
             ry_origin: None,
             rx_direction: None,
             ry_direction: None,
+            // medium: None,
         }
     }
 }
@@ -43,6 +46,7 @@ impl Ray {
         t_min: F,
         t_max: F,
         time: F,
+        // medium: Option<Arc<dyn Medium>>,
     ) -> Self {
         Self {
             origin,
@@ -51,6 +55,7 @@ impl Ray {
             t_max,
             time,
             has_differentials: false,
+            // medium,
             ..Default::default()
         }
     }

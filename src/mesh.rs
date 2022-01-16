@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 extern crate tobj;
 
@@ -8,22 +8,23 @@ use tobj::LoadOptions;
 use crate::aabb::AABB3;
 use crate::common::*;
 use crate::interaction::Shading;
-use crate::interaction::SurfaceInteraction;
+use crate::interaction::Interaction;
+use crate::media::MediumInterface;
 use crate::ray::Ray;
-use crate::sampler::Distribution1D;
+use crate::distributions::Distribution1D;
 use crate::shape::*;
 use crate::transform::Transform;
 use crate::vector::*;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Triangle {
-    shape_data: Rc<ShapeData>,
+    shape_data: Arc<ShapeData>,
     pub a: S,
     pub b: S,
     pub c: S,
-    pub positions: Rc<Vec<Point3>>,
-    pub normals: Rc<Vec<Normal3>>,
-    // pub texcoords: Rc<Vec<Point3>>,
+    pub positions: Arc<Vec<Point3>>,
+    pub normals: Arc<Vec<Normal3>>,
+    // pub texcoords: Arc<Vec<Point3>>,
 }
 
 impl Shape for Triangle {
@@ -46,7 +47,7 @@ impl Shape for Triangle {
     }
 
     // Most of this code is from Twinklebear@Github's implementation at https://github.com/Twinklebear/tray_rust/blob/master/src/geometry/mesh.rs
-    fn intersect(&self, ray: &mut Ray, _test_alpha_texture: bool) -> Option<SurfaceInteraction> {
+    fn intersect(&self, ray: &mut Ray, _test_alpha_texture: bool) -> Option<Interaction> {
         let pa = &self.positions[self.a];
         let pb = &self.positions[self.b];
         let pc = &self.positions[self.c];
@@ -82,18 +83,21 @@ impl Shape for Triangle {
 
         bary[0] = 1.0 - bary[1] - bary[2];
         ray.t_max = t;
-        let p = ray.at(t);
+        let p = ray.origin + ray.direction * t;
 
         let n = (bary[0] * *na + bary[1] * *nb + bary[2] * *nc).normalize();
         let texcoord = point2(0.0, 0.0); // TODO: add actual textures
-
-        Some(SurfaceInteraction::new_with_normal(
+        // let mi;
+        // if self.shape_data.medium_interface.is_transition() { mi = self.shape_data.medium_interface; }
+        // else { mi = MediumInterface::new_non_transition(ray.medium) }
+        Some(Interaction::new_with_normal(
             p,
             -ray.direction,
             texcoord,
             n,
             ray.time,
             None,
+            // mi,
         ))
     }
 
@@ -133,7 +137,7 @@ impl Shape for Triangle {
         true
     }
 
-    fn sample_u(&self, u: &Point2) -> SurfaceInteraction {
+    fn sample_u(&self, u: &Point2) -> Interaction {
         let b = Distribution1D::uniform_sample_triangle(u);
         let p0 = &self.positions[self.a];
         let p1 = &self.positions[self.b];
@@ -146,7 +150,7 @@ impl Shape for Triangle {
         if self.shape_data.reverse_orientation {
             n *= -1.0;
         }
-        let mut out = SurfaceInteraction::new_general(p, 0.0);
+        let mut out = Interaction::new_general(p, 0.0);
         out.p = p;
         out.n = Some(n);
         out.shading = Some(Shading {
@@ -157,24 +161,26 @@ impl Shape for Triangle {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Mesh {
-    shape_data: ShapeData,
+    shape_data: Arc<ShapeData>,
     bvh: Vec<Triangle>,
 }
 
 impl Mesh {
     pub fn new(
         reverse_orientation: bool,
-        positions: Rc<Vec<Point3>>,
-        normals: Rc<Vec<Normal3>>,
+        positions: Arc<Vec<Point3>>,
+        normals: Arc<Vec<Normal3>>,
         indices: Vec<UI>,
         object_to_world: Transform,
+        medium_interface: MediumInterface,
     ) -> Self {
-        let shape_data = Rc::new(ShapeData {
+        let shape_data = Arc::new(ShapeData {
             reverse_orientation,
             transform_swaps_handedness: false,
             object_to_world,
+            medium_interface,
         });
         let triangles = indices
             .chunks(3)
@@ -189,12 +195,12 @@ impl Mesh {
             .collect();
 
         Self {
-            shape_data: *shape_data.as_ref(),
+            shape_data,
             bvh: triangles,
         }
     }
 
-    pub fn load_obj(path: String, object_to_world: Transform) -> Option<Rc<Mesh>> {
+    pub fn load_obj(path: String, object_to_world: Transform, medium_interface: MediumInterface) -> Option<Arc<Mesh>> {
         match tobj::load_obj(
             &path,
             &LoadOptions {
@@ -215,24 +221,25 @@ impl Mesh {
                     path,
                     mesh.indices.len() / 3
                 );
-                let positions = Rc::new(
+                let positions = Arc::new(
                     mesh.positions
                         .chunks(3)
                         .map(|i| point3(i[0], i[1], i[2]))
                         .collect(),
                 );
-                let normals = Rc::new(
+                let normals = Arc::new(
                     mesh.normals
                         .chunks(3)
                         .map(|i| normal3(i[0], i[1], i[2]))
                         .collect(),
                 );
-                Some(Rc::new(Mesh::new(
+                Some(Arc::new(Mesh::new(
                     false,
                     positions,
                     normals,
                     mesh.indices.clone(),
                     object_to_world,
+                    medium_interface,
                 )))
             }
             Err(e) => {
@@ -260,7 +267,7 @@ impl Shape for Mesh {
         aabb
     }
 
-    fn intersect(&self, ray: &mut Ray, test_alpha_texture: bool) -> Option<SurfaceInteraction> {
+    fn intersect(&self, ray: &mut Ray, test_alpha_texture: bool) -> Option<Interaction> {
         // let mut ray = self.shape_data.obj_to_world.iray(r);
         let mut result = None;
         // let inv_dir = vec3(1.0 / ray.direction.x, 1.0 / ray.direction.y, 1.0 / ray.direction.z);
@@ -293,7 +300,7 @@ impl Shape for Mesh {
         false
     }
 
-    fn sample_u(&self, u: &Point2) -> SurfaceInteraction {
+    fn sample_u(&self, u: &Point2) -> Interaction {
         let tri = self.bvh.choose(&mut rand::thread_rng()).unwrap();
         tri.sample_u(u)
     }

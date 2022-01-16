@@ -1,8 +1,6 @@
 use std::f32::consts::PI;
 
-use na::ComplexField;
-
-use crate::common::{F, I};
+use crate::common::F;
 // use std::ops::{Add, Sub, Neg, Index, IndexMut, Div, Mul};
 
 extern crate nalgebra as na;

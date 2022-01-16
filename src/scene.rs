@@ -1,13 +1,11 @@
-use std::rc::Rc;
-
 use crate::{
-    aabb::AABB3, interaction::SurfaceInteraction, light::Light, primitive::Primitive, ray::Ray,
+    aabb::AABB3, interaction::Interaction, light::Light, primitive::Primitive, ray::Ray,
     shape::Shape,
 };
 
 pub struct Scene {
     pub objs: Vec<Primitive>,
-    pub lights: Vec<Box<dyn Light>>,
+    pub lights: Vec<Box<dyn Light + Send + Sync>>,
 }
 
 impl Scene {
@@ -23,7 +21,7 @@ impl Scene {
         }
     }
 
-    pub fn intersect(&self, ray: &mut Ray) -> Option<SurfaceInteraction> {
+    pub fn intersect(&self, ray: &mut Ray) -> Option<Interaction> {
         let mut result = None;
         for node in self.objs.iter() {
             result = node.intersect(ray, false).or(result);

@@ -1,16 +1,16 @@
 use std::f32::consts::PI;
-use std::rc::Rc;
 
 use crate::aabb::AABB3;
 use crate::common::*;
-use crate::interaction::SurfaceInteraction;
+use crate::interaction::Interaction;
+use crate::media::MediumInterface;
 use crate::ray::Ray;
-use crate::sampler::Distribution1D;
+use crate::distributions::Distribution1D;
 use crate::shape::*;
 use crate::transform::Transform;
 use crate::vector::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone)]
 pub struct Sphere {
     shape_data: ShapeData,
     radius: F,
@@ -20,12 +20,13 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    pub fn new(reverse_orientation: bool, radius: F, object_to_world: Transform) -> Self {
+    pub fn new(reverse_orientation: bool, radius: F, object_to_world: Transform, medium_interface: MediumInterface) -> Self {
         Self {
             shape_data: ShapeData {
                 reverse_orientation,
                 transform_swaps_handedness: false,
                 object_to_world,
+                medium_interface,
             },
             radius,
             // z_min: z_min.min(z_max).clamp(-radius, radius),
@@ -49,7 +50,7 @@ impl Shape for Sphere {
         )
     }
 
-    fn intersect(&self, ray: &mut Ray, test_alpha_texture: bool) -> Option<SurfaceInteraction> {
+    fn intersect(&self, ray: &mut Ray, test_alpha_texture: bool) -> Option<Interaction> {
         // let mut ray = self.shape_data.obj_to_world.iray(r);
         let time = ray.time;
         let a = ray.direction.magnitude_squared();
@@ -67,7 +68,7 @@ impl Shape for Sphere {
             }
         }
         ray.t_max = t_shape_hit;
-        let mut p = ray.at(t_shape_hit);
+        let mut p = ray.origin + ray.direction * t_shape_hit;
         if p.x == 0.0 && p.y == 0.0 {
             p.x = 1e-5 * self.radius;
         }
@@ -84,7 +85,10 @@ impl Shape for Sphere {
         let v = theta / PI;
         let dpdu = vec3(-2.0 * PI * p.y, 2.0 * PI * p.x, 0.0);
         let dpdv = vec3(p.z * cos_phi, p.z * sin_phi, -self.radius * theta.sin()) * PI;
-        Some(SurfaceInteraction::new(
+        // let mi;
+        // if self.shape_data.medium_interface.is_transition() { mi = self.shape_data.medium_interface; }
+        // else { mi = MediumInterface::new_non_transition(ray.medium) }
+        Some(Interaction::new(
             p,
             -ray.direction,
             point2(u, v),
@@ -93,6 +97,7 @@ impl Shape for Sphere {
             time,
             None,
             None,
+            // mi,
         ))
     }
 
@@ -120,7 +125,7 @@ impl Shape for Sphere {
         true
     }
 
-    fn sample_u(&self, u: &Point2) -> SurfaceInteraction {
+    fn sample_u(&self, u: &Point2) -> Interaction {
         let mut p_obj = self.radius * Distribution1D::uniform_sample_sphere(u);
         let mut n = self
             .shape_data
@@ -132,7 +137,7 @@ impl Shape for Sphere {
         }
         p_obj *= self.radius / distance3d(&p_obj, &point3(0.0, 0.0, 0.0));
         p_obj = self.shape_data.object_to_world.fpt(p_obj);
-        let mut out = SurfaceInteraction::new_general(p_obj, 0.0);
+        let mut out = Interaction::new_general(p_obj, 0.0);
         out.n = Some(n);
         out
     }

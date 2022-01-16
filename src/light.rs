@@ -1,20 +1,20 @@
-use std::{f32::consts::PI, rc::Rc};
+use std::{f32::consts::PI, sync::Arc};
 
 use crate::{
     aabb::AABB3,
     color::{black, color3, Color3},
     common::{F, S},
-    interaction::SurfaceInteraction,
+    interaction::Interaction,
     ray::Ray,
-    sampler::Distribution2D,
+    distributions::Distribution2D,
     scene::Scene,
     transform::Transform,
     vector::{point2, point3, spherical_phi, spherical_theta, vec3, Point2, Point3, Vec3},
 };
 
 pub struct VisibilityTester {
-    pub p0: Rc<SurfaceInteraction>,
-    pub p1: Rc<SurfaceInteraction>,
+    pub p0: Arc<Interaction>,
+    pub p1: Arc<Interaction>,
 }
 
 impl VisibilityTester {
@@ -55,11 +55,12 @@ pub trait Light {
     }
     fn light_to_world(&self) -> Transform;
     fn maybe_set_bounds(&mut self, world_bounds: &AABB3) {}
-    fn sample_li(&self, inter: Rc<SurfaceInteraction>, u: Point2) -> Option<LiResult>;
-    fn pdf_li(&self, inter: &SurfaceInteraction, w: &Vec3) -> F {
+    fn sample_li(&self, inter: Arc<Interaction>, u: Point2) -> Option<LiResult>;
+    fn pdf_li(&self, inter: &Interaction, w: &Vec3) -> F {
         0.0
     }
     fn power(&self) -> Color3;
+    fn brightness(&self) -> F;
     fn le(&self, ray: &Ray) -> Color3 {
         black()
     }
@@ -69,14 +70,16 @@ pub struct PointLight {
     light_to_world: Transform,
     position: Point3,
     intensity: Color3,
+    brightness: F,
 }
 
 impl PointLight {
-    pub fn new(light_to_world: Transform, intensity: Color3) -> Self {
+    pub fn new(light_to_world: Transform, intensity: Color3, brightness: F) -> Self {
         Self {
             light_to_world,
             intensity,
             position: light_to_world.fpt(point3(0.0, 0.0, 0.0)),
+            brightness,
         }
     }
 }
@@ -86,19 +89,23 @@ impl Light for PointLight {
         self.light_to_world
     }
 
-    fn sample_li(&self, inter: Rc<SurfaceInteraction>, u: Point2) -> Option<LiResult> {
+    fn sample_li(&self, inter: Arc<Interaction>, u: Point2) -> Option<LiResult> {
         let wi = (self.position - inter.p).normalize();
         let pdf = 1.0;
         let vis = VisibilityTester {
             p0: inter.clone(),
-            p1: Rc::new(SurfaceInteraction::new_general(self.position, inter.time)),
+            p1: Arc::new(Interaction::new_general(self.position, inter.time)),
         };
-        let col = self.intensity / (inter.p - self.position).magnitude_squared();
+        let col = self.intensity * self.brightness / (inter.p - self.position).magnitude_squared();
         Some(LiResult { col, vis, wi, pdf })
     }
 
     fn power(&self) -> Color3 {
         4.0 * PI * self.intensity
+    }
+
+    fn brightness(&self) -> F {
+        self.brightness
     }
 }
 
@@ -108,16 +115,18 @@ pub struct ConstantInfiniteLight {
     world_center: Option<Point3>,
     world_radius: Option<F>,
     distr: Distribution2D,
+    brightness: F,
 }
 
 impl ConstantInfiniteLight {
-    pub fn new(light_to_world: Transform, intensity: Color3) -> Self {
+    pub fn new(light_to_world: Transform, intensity: Color3, brightness: F) -> Self {
         Self {
             light_to_world,
             intensity,
             world_center: None,
             world_radius: None,
             distr: Distribution2D::new(&[&[1.0]]),
+            brightness,
         }
     }
 }
@@ -147,16 +156,16 @@ impl Light for ConstantInfiniteLight {
         if let Some(radius) = self.world_radius {
             let pir2 = PI * radius * radius;
             color3(
-                self.intensity.x * pir2,
-                self.intensity.y * pir2,
-                self.intensity.z * pir2,
+                self.intensity.x * pir2 * self.brightness,
+                self.intensity.y * pir2 * self.brightness,
+                self.intensity.z * pir2 * self.brightness,
             )
         } else {
             panic!("Uninitialized ConstantInfiniteLight is trying to be used! Did you call light.preprocess()?")
         }
     }
 
-    fn sample_li(&self, inter: Rc<SurfaceInteraction>, uv: Point2) -> Option<LiResult> {
+    fn sample_li(&self, inter: Arc<Interaction>, uv: Point2) -> Option<LiResult> {
         if let Some(radius) = self.world_radius {
             if let Some((uv, map_pdf)) = self.distr.sample_continuous(&uv) {
                 if map_pdf == 0.0 {
@@ -181,13 +190,13 @@ impl Light for ConstantInfiniteLight {
                 }
                 let vis = VisibilityTester {
                     p0: inter.clone(),
-                    p1: Rc::new(SurfaceInteraction::new_general(
+                    p1: Arc::new(Interaction::new_general(
                         inter.p + wi * (2.0 * radius),
                         inter.time,
                     )),
                 };
                 Some(LiResult {
-                    col: self.intensity,
+                    col: self.intensity * self.brightness,
                     wi,
                     pdf,
                     vis,
@@ -200,7 +209,7 @@ impl Light for ConstantInfiniteLight {
         }
     }
 
-    fn pdf_li(&self, inter: &SurfaceInteraction, w: &Vec3) -> F {
+    fn pdf_li(&self, inter: &Interaction, w: &Vec3) -> F {
         let wi = self.light_to_world.ivec(w);
         let theta = spherical_theta(&wi);
         let phi = spherical_phi(&wi);
@@ -211,5 +220,9 @@ impl Light for ConstantInfiniteLight {
             self.distr
                 .pdf(point2(phi / (2.0 * PI), theta / (2.0 * PI)) / (2.0 * PI * PI * sin_theta))
         }
+    }
+
+    fn brightness(&self) -> F {
+        self.brightness
     }
 }

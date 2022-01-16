@@ -8,10 +8,8 @@ use glm::rotation;
 use crate::aabb::AABB3;
 use crate::common::*;
 use crate::interaction::Shading;
-use crate::interaction::SurfaceInteraction;
-use crate::material::Bsdf;
+use crate::interaction::Interaction;
 use crate::matrix::*;
-use crate::quaternion::Quaternion;
 use crate::ray::Ray;
 use crate::vector::*;
 
@@ -365,8 +363,8 @@ impl Transform {
 
     pub fn forward_surface_interaction_transform(
         self,
-        a: SurfaceInteraction,
-    ) -> SurfaceInteraction {
+        a: Interaction,
+    ) -> Interaction {
         let dpdu;
         let dpdv;
         let n;
@@ -403,7 +401,7 @@ impl Transform {
         } else {
             shading = None;
         }
-        SurfaceInteraction {
+        Interaction {
             p: self.fpt(a.p),
             n,
             wo,
@@ -418,6 +416,7 @@ impl Transform {
             // p_error: a.p_error,
             // shape: a.shape,
             bsdf: a.bsdf,
+            // medium_interface: a.medium_interface,
         }
     }
 }
