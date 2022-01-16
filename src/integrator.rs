@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use rand::prelude::IteratorRandom;
 
-use crate::{scene::Scene, ray::Ray, color::{Color3, black}, common::{S, F}, interaction::SurfaceInteraction, rng::RngGen, vector::Point2, light::Light, material::{BXDF_ALL, BXDF_SPECULAR}, camera::SimpleCamera};
+use crate::{scene::Scene, ray::Ray, color::{Color3, black, color3}, common::{S, F}, interaction::SurfaceInteraction, rng::RngGen, vector::Point2, light::Light, material::{BXDF_ALL, BXDF_SPECULAR}, camera::SimpleCamera};
 
 
 pub trait Integrator {
@@ -22,10 +22,10 @@ pub fn power_heuristic(nf: S, f_pdf: F, ng: S, g_pdf: F) -> F {
     (f*f) / (f*f+g*g)
 }
 
-pub fn estimate_direct(inter: Rc<SurfaceInteraction>, u_scattering: Point2, light: &Box<dyn Light>, u_light: Point2, scene: &Scene, rng: &RngGen) -> Color3 {
+pub fn estimate_direct(inter: &SurfaceInteraction, u_scattering: Point2, light: &Box<dyn Light>, u_light: Point2, scene: &Scene, rng: &RngGen) -> Color3 {
     let flags = BXDF_ALL & !BXDF_SPECULAR;
     let mut ld = black();
-    if let Some(mut li) = light.sample_li(inter.clone(), u_light) {
+    if let Some(mut li) = light.sample_li(Rc::new(inter.clone()), u_light) {
         if li.pdf > 0.0 && li.col != black() {
             let f = 
                 inter.bsdf.as_ref().unwrap().f(&inter.wo.unwrap(), &li.wi, flags)
@@ -66,7 +66,7 @@ pub fn estimate_direct(inter: Rc<SurfaceInteraction>, u_scattering: Point2, ligh
     ld
 }
 
-pub fn uniform_sample_all_lights(inter: Rc<SurfaceInteraction>, scene: &Scene, n_light_samples: Vec<S>, rng: &RngGen) -> Color3 {
+pub fn uniform_sample_all_lights(inter: &SurfaceInteraction, scene: &Scene, n_light_samples: Vec<S>, rng: &RngGen) -> Color3 {
     let mut out_color = black();
     for (j, light) in scene.lights.iter().enumerate() {
         let n_samples = n_light_samples[j];
@@ -75,11 +75,11 @@ pub fn uniform_sample_all_lights(inter: Rc<SurfaceInteraction>, scene: &Scene, n
         if u_light_array.is_empty() || u_scattering_array.is_empty() {
             let u_light = rng.uniform_sample_point2();
             let u_scattering = rng.uniform_sample_point2();
-            out_color += estimate_direct(inter.clone(), u_scattering, light, u_light, scene, rng);
+            out_color += estimate_direct(inter, u_scattering, light, u_light, scene, rng);
         } else {
             let mut ld = black();
             for k in 0..n_samples {
-                ld += estimate_direct(inter.clone(), u_scattering_array[k], light, u_light_array[k], scene, rng);
+                ld += estimate_direct(inter, u_scattering_array[k], light, u_light_array[k], scene, rng);
             }
             out_color += ld / n_samples as F;
         }
@@ -87,7 +87,7 @@ pub fn uniform_sample_all_lights(inter: Rc<SurfaceInteraction>, scene: &Scene, n
     out_color
 }
 
-pub fn uniform_sample_one_light(inter: Rc<SurfaceInteraction>, scene: &Scene, rng: &RngGen) -> Color3 {
+pub fn uniform_sample_one_light(inter: &SurfaceInteraction, scene: &Scene, rng: &RngGen) -> Color3 {
     if scene.lights.is_empty() { return black(); }
     let light = scene.lights.iter().choose(&mut rand::thread_rng()).unwrap();
     let u_light = rng.uniform_sample_point2();
@@ -127,27 +127,94 @@ impl Integrator for DirectLightingIntegrator {
     }
 
     fn li(&self, ray: &mut Ray, scene: &Scene, depth: S, rng: &RngGen) -> Color3 {
-        let mut rr_factor = 1.0;
-        if depth >= self.max_depth {
-            let rr_stop_prob = 1.0f32.min(0.0625 * depth as F);
-            if rng.sample_0_1() <= rr_stop_prob {
-                return black();
-            }
-            rr_factor = 1.0 / (1.0 - rr_stop_prob);
-        }
+        // let mut rr_factor = 1.0;
+        // if depth >= self.max_depth {
+        //     let rr_stop_prob = 1.0f32.min(0.0625 * depth as F);
+        //     if rng.sample_0_1() <= rr_stop_prob {
+        //         return black();
+        //     }
+        //     rr_factor = 1.0 / (1.0 - rr_stop_prob);
+        // }
         let mut out_color = black();
         if let Some(inter) = scene.intersect(ray) {
             if self.strategy == LightStrategy::UniformSampleAll {
-                out_color += uniform_sample_all_lights(Rc::new(inter), scene, self.n_light_samples.clone(), rng);
+                out_color += uniform_sample_all_lights(&inter, scene, self.n_light_samples.clone(), rng);
             } else {
-                out_color += uniform_sample_one_light(Rc::new(inter), scene, rng);
+                out_color += uniform_sample_one_light(&inter, scene, rng);
             }
-            if depth < self.max_depth {
-                out_color += self.li(ray, scene, depth+1, rng);
-            }
+            // if depth < self.max_depth {
+            //     out_color += self.li(ray, scene, depth+1, rng);
+            // }
         } else {
             return black()
         }
-        out_color * rr_factor
+        out_color// * rr_factor
+    }
+}
+
+pub struct PathIntegrator {
+    max_depth: S,
+}
+
+impl PathIntegrator {
+    pub fn new(max_depth: S) -> Self { Self {max_depth} }
+}
+
+impl Integrator for PathIntegrator {
+    fn li(&self, original_ray: &mut Ray, scene: &Scene, depth: S, rng: &RngGen) -> Color3 {
+        let mut out_color = black();
+        let mut ray = original_ray.to_owned();
+        let mut beta = color3(1.0, 1.0, 1.0);
+        let mut specular_bounce = false;
+        let mut bounces = 0;
+        loop {
+            let inter_opt = scene.intersect(&mut ray);
+            if bounces == 0 || specular_bounce {
+                if let Some(ref inter) = inter_opt {
+                    // out_color += beta.component_mul(&inter.le(&-ray.direction));
+                } else {
+                    for light in scene.lights.iter() {
+                        out_color += beta.component_mul(&light.le(&ray));
+                    }
+                }
+            }
+            if inter_opt.is_none() || bounces >= self.max_depth {
+                break;
+            }
+
+            let mut inter = inter_opt.unwrap().clone();
+
+            inter.scatter(&mut ray, rng);
+            if inter.bsdf.is_none() {
+                ray = inter.spawn_ray(ray.direction);
+                bounces -= 1;
+                continue
+            }
+            
+            let bsdf = inter.bsdf.as_ref().unwrap();
+            out_color += beta.component_mul(&uniform_sample_one_light(&inter, scene, rng));
+            let wo = -ray.direction;
+            if let Some((f, pdf, wi, flags)) = bsdf.sample_f(&wo, &rng.uniform_sample_point2(), BXDF_ALL) {
+                if f == black() || pdf == 0.0 {
+                    break
+                }
+                beta.component_mul_assign(&(f * wi.dot(&inter.shading.as_ref().unwrap().n).abs() / pdf));
+                specular_bounce = flags & BXDF_SPECULAR != 0;
+                ray = inter.spawn_ray(wi);
+            }
+
+            // TODO: Subsurface scattering here!
+
+            if bounces > 3 {
+                let q = F::max(0.05, 1.0 - beta.y);
+                if rng.sample_0_1() < q {
+                    break
+                }
+                beta /= 1.0 - q;
+            }
+
+            bounces += 1;
+        }        
+        out_color
     }
 }

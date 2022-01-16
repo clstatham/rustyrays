@@ -34,7 +34,7 @@ use beryllium::{
 };
 use camera::{SimpleCamera};
 use fermium::keycode;
-use integrator::{Integrator, DirectLightingIntegrator};
+use integrator::{Integrator, DirectLightingIntegrator, PathIntegrator};
 use light::{ConstantInfiniteLight};
 use material::Matte;
 use mesh::Mesh;
@@ -58,7 +58,6 @@ const ASPECT_RATIO: f32 = (WIDTH as f32) / (HEIGHT as f32);
 struct World {
     pub scene: Scene,
     pub cam: SimpleCamera,
-    pub background: Color3,
     pub integrator: Rc<dyn Integrator>,
     // max_depth: S,
     samples_per_pixel: S,
@@ -69,18 +68,16 @@ impl World {
     pub fn new(
         scene: Scene,
         cam: SimpleCamera,
-        background: Color3,
         max_depth: S,
         samples_per_pixel: S,
     ) -> Self {
         Self {
             scene,
             cam,
-            background,
             // max_depth,
             samples_per_pixel,
             rng: RngGen::new(),
-            integrator: Rc::new(DirectLightingIntegrator::new(integrator::LightStrategy::UniformSampleOne, max_depth)),
+            integrator: Rc::new(PathIntegrator::new(max_depth)),
         }
     }
 
@@ -241,7 +238,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // )),
             Box::new(ConstantInfiniteLight::new(
                 Transform::new_identity(),
-                sky * 10.0,
+                sky,
             ))
         ],
     };
@@ -259,7 +256,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cam = SimpleCamera::new(point3(10.0, 10.0, 10.0), point3(0.0, 0.0, 0.0), 40.0);
 
     
-    let world = World::new(objs, cam, sky, 5, 10);
+    let world = World::new(objs, cam, 8, 10);
 
     let mut current_frame = 0;
     'game_loop: loop {

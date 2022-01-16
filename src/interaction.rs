@@ -2,6 +2,7 @@ extern crate nalgebra_glm as glm;
 
 use std::rc::Rc;
 
+use crate::color::Color3;
 use crate::common::*;
 use crate::material::{Bsdf, Bxdf};
 use crate::primitive::Primitive;
@@ -124,6 +125,10 @@ impl SurfaceInteraction {
         out
     }
 
+    // pub fn le(&self, dir: &Vec3) -> Color3 {
+    //     // if dir.dot(self.n.unwrap()) > 0.0 { self.primitive.unwrap().material.}
+    // }
+
     pub fn new_general(p: Point3, time: F) -> Self {
         Self {
             p,
@@ -173,5 +178,9 @@ impl SurfaceInteraction {
     pub fn spawn_ray_to(&self, other: &SurfaceInteraction) -> Ray {
         // let w = other.p-self.p;
         self.spawn_ray_to_point(&other.p)
+    }
+
+    pub fn spawn_ray(&self, direction: Vec3) -> Ray {
+        Ray::new_non_differential(self.p, direction, 0.0001, F::INFINITY, self.time)
     }
 }
