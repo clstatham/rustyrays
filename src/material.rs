@@ -112,12 +112,18 @@ pub struct Bsdf {
 
 impl Bsdf {
     pub fn new(inter: &SurfaceInteraction) -> Self {
-        Self { // TODO: remove all these unwraps
+        Self {
+            // TODO: remove all these unwraps
             bxdfs: vec![],
             ns: inter.shading.as_ref().unwrap().n,
             ng: inter.n.unwrap(),
             ss: inter.shading.as_ref().unwrap().dpdu.normalize(),
-            ts: inter.shading.as_ref().unwrap().n.cross(&inter.shading.as_ref().unwrap().dpdu.normalize())
+            ts: inter
+                .shading
+                .as_ref()
+                .unwrap()
+                .n
+                .cross(&inter.shading.as_ref().unwrap().dpdu.normalize()),
         }
     }
 
@@ -126,12 +132,13 @@ impl Bsdf {
     }
 
     pub fn pdf(&self, wo: &Vec3, wi: &Vec3, flags: BXDFType) -> F {
-        self.bxdfs.iter().filter_map(|item| 
-            match item {
+        self.bxdfs
+            .iter()
+            .filter_map(|item| match item {
                 bxdf if bxdf.bxdf_type() & flags != 0 => Some(bxdf.pdf(wo, wi)),
-                _ => None
-            }
-        ).product()
+                _ => None,
+            })
+            .product()
     }
 
     pub fn f(&self, wo_world: &Vec3, wi_world: &Vec3, flags: BXDFType) -> Color3 {
@@ -140,10 +147,10 @@ impl Bsdf {
         let reflect = wi_world.dot(&self.ng) * wo_world.dot(&self.ng) > 0.0;
         let mut f = black();
         for bxdf in self.bxdfs.iter() {
-            if bxdf.bxdf_type() & flags != 0 && (
-                (reflect && (bxdf.bxdf_type() & BXDF_REFLECTION != 0)) ||
-                (!reflect && (bxdf.bxdf_type() & BXDF_TRANSMISSION != 0))
-            ) {
+            if bxdf.bxdf_type() & flags != 0
+                && ((reflect && (bxdf.bxdf_type() & BXDF_REFLECTION != 0))
+                    || (!reflect && (bxdf.bxdf_type() & BXDF_TRANSMISSION != 0)))
+            {
                 if let Some(f_col) = bxdf.f(&wo, &wi) {
                     f += f_col;
                 }
@@ -151,17 +158,25 @@ impl Bsdf {
         }
         f
     }
-    pub fn sample_f(&self, wo: &Vec3, u: &Point2, flags: BXDFType) -> Option<(Color3, F, Vec3, BXDFType)> {
+    pub fn sample_f(
+        &self,
+        wo: &Vec3,
+        u: &Point2,
+        flags: BXDFType,
+    ) -> Option<(Color3, F, Vec3, BXDFType)> {
         let mut matching_comps = 0;
-        if self.bxdfs.is_empty() { return None }
+        if self.bxdfs.is_empty() {
+            return None;
+        }
         for bxdf in self.bxdfs.iter() {
             if bxdf.bxdf_type() & flags != 0 {
                 matching_comps += 1;
             }
         }
         let comp;
-        if matching_comps == 0 { comp = 0; }
-        else {
+        if matching_comps == 0 {
+            comp = 0;
+        } else {
             comp = ((u.x * matching_comps as F).floor() as I).min(matching_comps - 1);
         }
         let bxdf = &self.bxdfs[comp as S];
@@ -170,12 +185,16 @@ impl Bsdf {
         bxdf.sample_f(wo, u)
     }
 
-    pub fn world_to_local(&self, v: &Vec3) -> Vec3 { vec3(self.ss.dot(v), self.ts.dot(v), self.ns.dot(v)) }
-    pub fn local_to_world(&self, v: &Vec3) -> Vec3 { vec3(
-        self.ss.x * v.x + self.ts.x * v.y + self.ns.x * v.z,
-        self.ss.y * v.x + self.ts.y * v.y + self.ns.y * v.z,
-        self.ss.z * v.x + self.ts.z * v.y + self.ns.z * v.z,
-    ) }
+    pub fn world_to_local(&self, v: &Vec3) -> Vec3 {
+        vec3(self.ss.dot(v), self.ts.dot(v), self.ns.dot(v))
+    }
+    pub fn local_to_world(&self, v: &Vec3) -> Vec3 {
+        vec3(
+            self.ss.x * v.x + self.ts.x * v.y + self.ns.x * v.z,
+            self.ss.y * v.x + self.ts.y * v.y + self.ns.y * v.z,
+            self.ss.z * v.x + self.ts.z * v.y + self.ns.z * v.z,
+        )
+    }
 }
 
 pub trait Material {
@@ -222,7 +241,6 @@ impl Material for Matte {
                 None => {}
             }
         }
-        
     }
 
     fn scattering_pdf(&self, ray: &Ray, inter: &SurfaceInteraction) -> F {

@@ -180,7 +180,7 @@ impl AABB3 {
     pub fn bounding_sphere(self) -> (Point3, F) {
         let center = (self.p_min.add(self.p_max)) / 2.0;
         let radius = if self.inside(center) {
-            distance3(&center, &self.p_max)
+            distance3d(&center, &self.p_max)
         } else {
             0.0
         };

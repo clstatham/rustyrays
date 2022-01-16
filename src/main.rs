@@ -4,6 +4,7 @@ mod aabb;
 mod camera;
 mod color;
 mod common;
+mod integrator;
 mod interaction;
 mod light;
 mod material;
@@ -23,7 +24,6 @@ mod texture;
 mod transform;
 mod trianglemesh;
 mod vector;
-mod integrator;
 
 use std::rc::Rc;
 
@@ -32,10 +32,10 @@ use beryllium::{
     init::{InitFlags, Sdl},
     window::WindowFlags,
 };
-use camera::{SimpleCamera};
+use camera::SimpleCamera;
 use fermium::keycode;
-use integrator::{Integrator, DirectLightingIntegrator, PathIntegrator};
-use light::{ConstantInfiniteLight};
+use integrator::{Integrator, PathIntegrator};
+use light::{ConstantInfiniteLight, PointLight};
 use material::Matte;
 use mesh::Mesh;
 use pixels::{Pixels, SurfaceTexture};
@@ -58,95 +58,28 @@ const ASPECT_RATIO: f32 = (WIDTH as f32) / (HEIGHT as f32);
 struct World {
     pub scene: Scene,
     pub cam: SimpleCamera,
-    pub integrator: Rc<dyn Integrator>,
+    pub integrator: PathIntegrator,
     // max_depth: S,
     samples_per_pixel: S,
     rng: RngGen,
 }
 
 impl World {
-    pub fn new(
-        scene: Scene,
-        cam: SimpleCamera,
-        max_depth: S,
-        samples_per_pixel: S,
-    ) -> Self {
+    pub fn new(scene: Scene, cam: SimpleCamera, max_depth: S, samples_per_pixel: S) -> Self {
         Self {
             scene,
             cam,
             // max_depth,
             samples_per_pixel,
             rng: RngGen::new(),
-            integrator: Rc::new(PathIntegrator::new(max_depth)),
+            integrator: PathIntegrator::new(max_depth),
         }
     }
 
-    /// Fully traces a ray through the world, returning its final color.
-    // fn trace(&self, ray: &mut Ray, depth: S) -> Color3 {
-    //     let mut rr_factor = 1.0;
-    //     let mut out_color = black();
-    //     if depth >= self.max_depth {
-    //         let rr_stop_prob = 1.0f32.min(0.0625 * depth as F);
-    //         if self.rng.sample_0_1() <= rr_stop_prob {
-    //             return black();
-    //         }
-    //         rr_factor = 1.0 / (1.0 - rr_stop_prob);
-    //     }
-    //     if let Some(mut inter) = self.scene.intersect(ray) {
-    //         // ray.origin = inter.p;
-    //         // if let Some(ref obj_hit) = inter.primitive {
-    //             // if let Some(material) = &obj_hit.material {
-    //                 for light in self.scene.lights.iter() {
-    //                     let li = light
-    //                         .sample_li(Rc::new(inter.clone()), self.rng.uniform_sample_point2());
-    //                     if li.col == black() || li.pdf == Some(0.0) || li.pdf.is_none() {
-    //                         return black();
-    //                     }
-    //                     inter.scatter(ray, &self.rng);
-                        
-    //                     if let Some(ref bsdf) = inter.bsdf {
-    //                         if let Some((attenuation, material_pdf, material_wi, _)) =
-    //                             bsdf
-    //                                 .sample_f(&-ray.direction, &self.rng.uniform_sample_point2(), crate::material::BXDF_REFLECTION | crate::material::BXDF_SPECULAR)
-    //                         {
-                                
-    //                             if let Some(ref shading) = inter.shading {
-    //                                 // ray.direction = onb::Onb::new_from_w(&inter.n.unwrap()).local(&material_wi);
-    //                                 let bounced_color = self.trace(ray, depth+1);
-    //                                 let mut f = attenuation + bounced_color;
-    //                                 if li.vis.unwrap().unoccluded(&self.scene) {
-    //                                 // if true {
-    //                                     f.x *= li.col.x;
-    //                                     f.y *= li.col.y;
-    //                                     f.z *= li.col.z;
-    //                                     if let Some(light_wi) = li.wi {
-    //                                         f *= light_wi.dot(&shading.n).abs();
-    //                                     }
-    //                                     if let Some(light_pdf) = li.pdf {
-    //                                         f /= light_pdf;
-    //                                     }
-    //                                     f *= material_wi.dot(&shading.n).abs();
-    //                                     f /= material_pdf;
-    //                                     out_color += f;
-    //                                 }
-    //                             } // if let shading
-    //                         } // if let attenuation
-    //                     } // if let bsdf
-    //                 }
-    //             // } // if let material
-    //         // } // if let obj_hit
-    //         out_color * rr_factor
-    //     } else {
-    //         // if let inter
-    //         for light in self.scene.lights.iter() {
-    //             // out_color += self.background * rr_factor; // TODO: add emmissive background lights
-    //             out_color += light.le(ray);
-    //         }
-    //         // out_color += self.background;
-    //         out_color * rr_factor
-    //     }
-        // out_color
-    // }
+    pub fn preprocess(&mut self) {
+        self.scene.preprocess();
+        self.integrator.preprocess(&self.scene, &self.cam);
+    }
 
     pub fn render_pixel(&self, frame: &mut [u8], pixel_idx: S, x: S, y: S) {
         // if x == WIDTH/2 && y == HEIGHT/2 {
@@ -190,13 +123,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let sky = color3(0.7, 0.8, 1.0);
 
-    let mut objs: Scene = Scene {
+    let objs: Scene = Scene {
         objs: vec![
             // Box::new(Sphere::new(
             //     false, 20.0, -1.0, 1.0, 2.0*PI)),
             Primitive::new(
-                Rc::new(Sphere::new(false, 100.0)),
-                Transform::new_translate(vec3(0.0, -100.01, 0.0)),
+                Rc::new(Sphere::new(
+                    false,
+                    100.0,
+                    Transform::new_translate(vec3(0.0, -100.01, 0.0)),
+                )),
                 Rc::new(Matte {
                     kd: Rc::new(SolidColor {
                         color: color3(0.1, 0.1, 0.1),
@@ -207,8 +143,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 None,
             ),
             Primitive::new(
-                Rc::new(Sphere::new(false, 3.0)),
-                Transform::new_translate(vec3(0.0, 3.0, 0.0)),
+                Rc::new(Sphere::new(
+                    false,
+                    3.0,
+                    Transform::new_translate(vec3(0.0, 3.0, 0.0)),
+                )),
                 Rc::new(Matte {
                     kd: Rc::new(SolidColor {
                         color: color3(1.0, 0.1, 0.1),
@@ -219,8 +158,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 None,
             ),
             Primitive::new(
-                Mesh::load_obj("./cube.obj".to_string()).expect("Error loading model!"),
-                Transform::new_translate(vec3(0.0, 2.0, 4.0)),
+                Mesh::load_obj(
+                    "./cube.obj".to_string(),
+                    Transform::new_translate(vec3(0.0, 2.0, 4.0)),
+                )
+                .expect("Error loading model!"),
                 Rc::new(Matte {
                     kd: Rc::new(SolidColor {
                         color: color3(0.1, 0.1, 1.0),
@@ -232,17 +174,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ),
         ],
         lights: vec![
-            //     Box::new(PointLight::new(
-            //     Transform::new_translate(vec3(0.0, 8.0, 5.0)),
-            //     color3(1.0, 1.0, 1.0) * 5.0,
-            // )),
-            Box::new(ConstantInfiniteLight::new(
-                Transform::new_identity(),
-                sky,
-            ))
+            Box::new(PointLight::new(
+                Transform::new_translate(vec3(-5.0, 8.0, 0.0)),
+                color3(1.0, 1.0, 1.0) * 100.0,
+            )),
+            // Box::new(ConstantInfiniteLight::new(
+            //     Transform::new_identity(),
+            //     sky,
+            // ))
         ],
     };
-    objs.preprocess();
     // let cam = Camera::new(
 
     //     Transform::new_lookat(
@@ -255,8 +196,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // );
     let cam = SimpleCamera::new(point3(10.0, 10.0, 10.0), point3(0.0, 0.0, 0.0), 40.0);
 
-    
-    let world = World::new(objs, cam, 8, 10);
+    let mut world = World::new(objs, cam, 8, 10);
+
+    world.preprocess();
 
     let mut current_frame = 0;
     'game_loop: loop {

@@ -26,7 +26,9 @@ impl RngGen {
 
     pub fn get_2d_array(&self, n: S) -> Vec<Point2> {
         let mut out = vec![];
-        for _ in 0..n { out.push(self.uniform_sample_point2())}
+        for _ in 0..n {
+            out.push(self.uniform_sample_point2())
+        }
         out
     }
 }

@@ -31,11 +31,11 @@ pub fn vec2(x: F, y: F) -> Vec2 {
     glm::vec2(x, y)
 }
 
-pub fn distance3(a: &Point3, b: &Point3) -> F {
+pub fn distance3d(a: &Point3, b: &Point3) -> F {
     (a - b).magnitude()
 }
 
-pub fn distance_squared3(a: &Point3, b: &Point3) -> F {
+pub fn distance_squared3d(a: &Point3, b: &Point3) -> F {
     (a - b).magnitude_squared()
 }
 
@@ -61,7 +61,7 @@ pub fn spherical_phi(v: &Vec3) -> F {
     let p_ = F::atan2(v.y, v.x);
     match p_ {
         p if p < 0.0 => p + 2.0 * PI,
-        p => p
+        p => p,
     }
 }
 

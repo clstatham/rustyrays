@@ -1,12 +1,15 @@
 use std::{f32::consts::PI, rc::Rc};
 
 use crate::{
+    aabb::AABB3,
     color::{black, color3, Color3},
     common::{F, S},
     interaction::SurfaceInteraction,
+    ray::Ray,
+    sampler::Distribution2D,
     scene::Scene,
     transform::Transform,
-    vector::{point3, Point2, Point3, Vec3, vec3, spherical_theta, spherical_phi, point2}, ray::Ray, sampler::Distribution2D, aabb::AABB3,
+    vector::{point2, point3, spherical_phi, spherical_theta, vec3, Point2, Point3, Vec3},
 };
 
 pub struct VisibilityTester {
@@ -47,13 +50,19 @@ pub struct LiResult {
 }
 
 pub trait Light {
-    fn num_samples(&self) -> S { 1 }
+    fn num_samples(&self) -> S {
+        1
+    }
     fn light_to_world(&self) -> Transform;
     fn maybe_set_bounds(&mut self, world_bounds: &AABB3) {}
     fn sample_li(&self, inter: Rc<SurfaceInteraction>, u: Point2) -> Option<LiResult>;
-    fn pdf_li(&self, inter: &SurfaceInteraction, w: &Vec3) -> F { 0.0 }
+    fn pdf_li(&self, inter: &SurfaceInteraction, w: &Vec3) -> F {
+        0.0
+    }
     fn power(&self) -> Color3;
-    fn le(&self, ray: &Ray) -> Color3 { black() }
+    fn le(&self, ray: &Ray) -> Color3 {
+        black()
+    }
 }
 
 pub struct PointLight {
@@ -85,12 +94,7 @@ impl Light for PointLight {
             p1: Rc::new(SurfaceInteraction::new_general(self.position, inter.time)),
         };
         let col = self.intensity / (inter.p - self.position).magnitude_squared();
-        Some(LiResult {
-            col,
-            vis,
-            wi,
-            pdf,
-        })
+        Some(LiResult { col, vis, wi, pdf })
     }
 
     fn power(&self) -> Color3 {
@@ -113,7 +117,7 @@ impl ConstantInfiniteLight {
             intensity,
             world_center: None,
             world_radius: None,
-            distr: Distribution2D::new(&[&[1.0]])
+            distr: Distribution2D::new(&[&[1.0]]),
         }
     }
 }
@@ -142,7 +146,11 @@ impl Light for ConstantInfiniteLight {
     fn power(&self) -> Color3 {
         if let Some(radius) = self.world_radius {
             let pir2 = PI * radius * radius;
-            color3(self.intensity.x * pir2, self.intensity.y * pir2, self.intensity.z * pir2)
+            color3(
+                self.intensity.x * pir2,
+                self.intensity.y * pir2,
+                self.intensity.z * pir2,
+            )
         } else {
             panic!("Uninitialized ConstantInfiniteLight is trying to be used! Did you call light.preprocess()?")
         }
@@ -151,20 +159,42 @@ impl Light for ConstantInfiniteLight {
     fn sample_li(&self, inter: Rc<SurfaceInteraction>, uv: Point2) -> Option<LiResult> {
         if let Some(radius) = self.world_radius {
             if let Some((uv, map_pdf)) = self.distr.sample_continuous(&uv) {
-                if map_pdf == 0.0 { return None }
+                if map_pdf == 0.0 {
+                    return None;
+                }
                 let theta = uv[1] * PI;
                 let phi = uv[0] * 2.0 * PI;
                 let cos_theta = theta.cos();
                 let sin_theta = theta.sin();
                 let cos_phi = phi.cos();
                 let sin_phi = phi.sin();
-                let wi = self.light_to_world.fvec(&vec3(sin_theta*cos_phi, sin_theta*sin_phi, cos_theta));
+                let wi = self.light_to_world.fvec(&vec3(
+                    sin_theta * cos_phi,
+                    sin_theta * sin_phi,
+                    cos_theta,
+                ));
                 let pdf;
-                if sin_theta == 0.0 { pdf = 0.0 }
-                else { pdf = map_pdf / (2.0 * PI * PI * sin_theta); }
-                let vis = VisibilityTester { p0: inter.clone(), p1: Rc::new(SurfaceInteraction::new_general(inter.p + wi * (2.0 * radius), inter.time)) };
-                Some(LiResult { col: self.intensity, wi, pdf, vis })
-            } else { None }
+                if sin_theta == 0.0 {
+                    pdf = 0.0
+                } else {
+                    pdf = map_pdf / (2.0 * PI * PI * sin_theta);
+                }
+                let vis = VisibilityTester {
+                    p0: inter.clone(),
+                    p1: Rc::new(SurfaceInteraction::new_general(
+                        inter.p + wi * (2.0 * radius),
+                        inter.time,
+                    )),
+                };
+                Some(LiResult {
+                    col: self.intensity,
+                    wi,
+                    pdf,
+                    vis,
+                })
+            } else {
+                None
+            }
         } else {
             panic!("Uninitialized ConstantInfiniteLight is trying to be used! Did you call light.preprocess()?")
         }
@@ -175,9 +205,11 @@ impl Light for ConstantInfiniteLight {
         let theta = spherical_theta(&wi);
         let phi = spherical_phi(&wi);
         let sin_theta = theta.sin();
-        if sin_theta == 0.0 { 0.0 }
-        else {
-            self.distr.pdf(point2(phi / (2.0 * PI), theta / (2.0 * PI)) / (2.0 * PI * PI * sin_theta))
+        if sin_theta == 0.0 {
+            0.0
+        } else {
+            self.distr
+                .pdf(point2(phi / (2.0 * PI), theta / (2.0 * PI)) / (2.0 * PI * PI * sin_theta))
         }
     }
 }

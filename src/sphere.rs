@@ -5,6 +5,7 @@ use crate::aabb::AABB3;
 use crate::common::*;
 use crate::interaction::SurfaceInteraction;
 use crate::ray::Ray;
+use crate::sampler::Distribution1D;
 use crate::shape::*;
 use crate::transform::Transform;
 use crate::vector::*;
@@ -19,11 +20,12 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    pub fn new(reverse_orientation: bool, radius: F) -> Self {
+    pub fn new(reverse_orientation: bool, radius: F, object_to_world: Transform) -> Self {
         Self {
             shape_data: ShapeData {
                 reverse_orientation,
                 transform_swaps_handedness: false,
+                object_to_world,
             },
             radius,
             // z_min: z_min.min(z_max).clamp(-radius, radius),
@@ -116,5 +118,22 @@ impl Shape for Sphere {
             }
         }
         true
+    }
+
+    fn sample_u(&self, u: &Point2) -> SurfaceInteraction {
+        let mut p_obj = self.radius * Distribution1D::uniform_sample_sphere(u);
+        let mut n = self
+            .shape_data
+            .object_to_world
+            .fnorm(&normal3(p_obj.x, p_obj.y, p_obj.z))
+            .normalize();
+        if self.shape_data.reverse_orientation {
+            n *= -1.0;
+        }
+        p_obj *= self.radius / distance3d(&p_obj, &point3(0.0, 0.0, 0.0));
+        p_obj = self.shape_data.object_to_world.fpt(p_obj);
+        let mut out = SurfaceInteraction::new_general(p_obj, 0.0);
+        out.n = Some(n);
+        out
     }
 }

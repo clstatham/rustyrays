@@ -87,7 +87,7 @@ impl SurfaceInteraction {
             // shape,
         };
         out.create_bsdf();
-        
+
         // out.set_shading_geometry(dpdu, dpdv, false); // TODO: get actual authoritative value
         out
     }

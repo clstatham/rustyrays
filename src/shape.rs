@@ -13,6 +13,7 @@ pub struct ShapeData {
     // pub obj_to_world: Transform,
     pub reverse_orientation: bool,
     pub transform_swaps_handedness: bool,
+    pub object_to_world: Transform,
 }
 
 pub trait Shape {
@@ -31,7 +32,14 @@ pub trait Shape {
     fn pdf_wi(&self, inter: &SurfaceInteraction, wi: &Vec3) -> F {
         let mut ray = inter.spawn_ray_to_point(wi);
         if let Some(isect_light) = self.intersect(&mut ray, false) {
-            (inter.p - isect_light.p).magnitude_squared() / (isect_light.n.unwrap().dot(&-wi).abs() * self.area())
-        } else { 0.0 }
+            (inter.p - isect_light.p).magnitude_squared()
+                / (isect_light.n.unwrap().dot(&-wi).abs() * self.area())
+        } else {
+            0.0
+        }
+    }
+    fn sample_u(&self, u: &Point2) -> SurfaceInteraction;
+    fn sample_inter(&self, inter: &SurfaceInteraction, u: &Point2) -> SurfaceInteraction {
+        self.sample_u(u)
     }
 }

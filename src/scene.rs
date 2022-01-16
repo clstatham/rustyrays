@@ -1,7 +1,8 @@
 use std::rc::Rc;
 
 use crate::{
-    interaction::SurfaceInteraction, light::Light, primitive::Primitive, ray::Ray, shape::Shape, aabb::AABB3,
+    aabb::AABB3, interaction::SurfaceInteraction, light::Light, primitive::Primitive, ray::Ray,
+    shape::Shape,
 };
 
 pub struct Scene {

@@ -2,13 +2,17 @@ use std::rc::Rc;
 
 extern crate tobj;
 
+use rand::prelude::SliceRandom;
 use tobj::LoadOptions;
 
 use crate::aabb::AABB3;
 use crate::common::*;
+use crate::interaction::Shading;
 use crate::interaction::SurfaceInteraction;
 use crate::ray::Ray;
+use crate::sampler::Distribution1D;
 use crate::shape::*;
+use crate::transform::Transform;
 use crate::vector::*;
 
 #[derive(Debug, Clone)]
@@ -84,7 +88,12 @@ impl Shape for Triangle {
         let texcoord = point2(0.0, 0.0); // TODO: add actual textures
 
         Some(SurfaceInteraction::new_with_normal(
-            p, -ray.direction, texcoord, n, ray.time, None,
+            p,
+            -ray.direction,
+            texcoord,
+            n,
+            ray.time,
+            None,
         ))
     }
 
@@ -123,6 +132,29 @@ impl Shape for Triangle {
         }
         true
     }
+
+    fn sample_u(&self, u: &Point2) -> SurfaceInteraction {
+        let b = Distribution1D::uniform_sample_triangle(u);
+        let p0 = &self.positions[self.a];
+        let p1 = &self.positions[self.b];
+        let p2 = &self.positions[self.c];
+        let n0 = &self.normals[self.a];
+        let n1 = &self.normals[self.b];
+        let n2 = &self.normals[self.c];
+        let p = b[0] * p0 + b[1] * p1 + (1.0 - b[0] - b[1]) * p2;
+        let mut n = (b[0] * n0 + b[1] * n1 + (1.0 - b[0] - b[1]) * n2).normalize();
+        if self.shape_data.reverse_orientation {
+            n *= -1.0;
+        }
+        let mut out = SurfaceInteraction::new_general(p, 0.0);
+        out.p = p;
+        out.n = Some(n);
+        out.shading = Some(Shading {
+            n,
+            ..Default::default()
+        });
+        out
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -137,10 +169,12 @@ impl Mesh {
         positions: Rc<Vec<Point3>>,
         normals: Rc<Vec<Normal3>>,
         indices: Vec<UI>,
+        object_to_world: Transform,
     ) -> Self {
         let shape_data = Rc::new(ShapeData {
             reverse_orientation,
             transform_swaps_handedness: false,
+            object_to_world,
         });
         let triangles = indices
             .chunks(3)
@@ -155,15 +189,12 @@ impl Mesh {
             .collect();
 
         Self {
-            shape_data: ShapeData {
-                reverse_orientation,
-                transform_swaps_handedness: false,
-            },
+            shape_data: *shape_data.as_ref(),
             bvh: triangles,
         }
     }
 
-    pub fn load_obj(path: String) -> Option<Rc<Mesh>> {
+    pub fn load_obj(path: String, object_to_world: Transform) -> Option<Rc<Mesh>> {
         match tobj::load_obj(
             &path,
             &LoadOptions {
@@ -201,6 +232,7 @@ impl Mesh {
                     positions,
                     normals,
                     mesh.indices.clone(),
+                    object_to_world,
                 )))
             }
             Err(e) => {
@@ -238,7 +270,7 @@ impl Shape for Mesh {
         }
         if let Some(mut inter) = result {
             inter.create_bsdf();
-            return Some(inter)
+            return Some(inter);
         }
         None
     }
@@ -259,5 +291,10 @@ impl Shape for Mesh {
             }
         }
         false
+    }
+
+    fn sample_u(&self, u: &Point2) -> SurfaceInteraction {
+        let tri = self.bvh.choose(&mut rand::thread_rng()).unwrap();
+        tri.sample_u(u)
     }
 }
