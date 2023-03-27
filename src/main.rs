@@ -10,7 +10,7 @@ mod interaction;
 mod light;
 mod material;
 mod matrix;
-mod mesh;
+// mod mesh;
 mod onb;
 mod primitive;
 mod quaternion;
@@ -25,39 +25,26 @@ mod transform;
 mod vector;
 mod media;
 
+use std::{sync::Arc, io::{Write, Seek}};
 
-use rayon::{prelude::*};
-
-use std::sync::Arc;
-
-use beryllium::{
-    event::Event,
-    init::{InitFlags, Sdl},
-    window::WindowFlags,
-};
 use camera::SimpleCamera;
-use fermium::keycode;
 use integrator::{Integrator, PathIntegrator};
 use light::{ConstantInfiniteLight};
 use material::Matte;
 use media::MediumInterface;
-use mesh::Mesh;
-use pixels::{Pixels, SurfaceTexture};
 use primitive::Primitive;
-use rayon::{iter::{IntoParallelIterator, IndexedParallelIterator, ParallelBridge, ParallelIterator}, slice::ParallelSlice};
 use rng::RngGen;
 use scene::Scene;
 use sphere::Sphere;
 use texture::{ConstantValue, SolidColor};
 use transform::Transform;
-use zstring::zstr;
 
 use color::*;
 use common::*;
 use vector::*;
 
-const WIDTH: S = 1280 / 3;
-const HEIGHT: S = 720 / 3;
+const WIDTH: S = 640;
+const HEIGHT: S = 400;
 const ASPECT_RATIO: f32 = (WIDTH as f32) / (HEIGHT as f32);
 
 struct World where Self: Send + Sync {
@@ -107,20 +94,17 @@ impl World {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init();
 
-    let sdl = Sdl::init(InitFlags::VIDEO | InitFlags::EVENTS)?;
-    let window = sdl.create_vk_window(
-        zstr!("RustyRays"),
-        None,
-        (WIDTH as i32, HEIGHT as i32),
-        WindowFlags::ALLOW_HIGHDPI,
-    )?;
+    // let sdl = Sdl::init(InitFlags::VIDEO | InitFlags::EVENTS)?;
+    // let window = sdl.create_vk_window(
+    //     zstr!("RustyRays"),
+    //     None,
+    //     (WIDTH as i32, HEIGHT as i32),
+    //     WindowFlags::ALLOW_HIGHDPI,
+    // )?;
 
-    let mut pixels = {
-        let surface_texture = SurfaceTexture::new(WIDTH as u32, HEIGHT as u32, &*window);
-        Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture)?
-    };
+    let mut fb0 = std::fs::File::open("/dev/fb0")?;
+    let mut frame = vec![0u8; WIDTH * HEIGHT * 4];
 
     let sky = color3(0.7, 0.8, 1.0);
 
@@ -160,22 +144,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }),
                 None,
             ),
-            Primitive::new(
-                Mesh::load_obj(
-                    "./cube.obj".to_string(),
-                    Transform::new_translate(vec3(0.0, 2.0, 4.0)),
-                    MediumInterface::new_empty(),
-                )
-                .expect("Error loading model!"),
-                Arc::new(Matte {
-                    kd: Arc::new(SolidColor {
-                        color: color3(0.1, 0.1, 1.0),
-                    }),
-                    bump_map: None,
-                    sigma: Some(Arc::new(ConstantValue { val: 0.0 })),
-                }),
-                None,
-            ),
         ],
         lights: vec![
             // Box::new(PointLight::new(
@@ -190,16 +158,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ))
         ],
     };
-    // let cam = Camera::new(
-
-    //     Transform::new_lookat(
-    //         point3(10.0,10.0,10.0),
-    //         point3(0.0, 0.1,0.0),
-    //         vec3(0.0, 1.0, 0.0)),// * Transform::new_translate(point3(10.0, 10.0, 10.0)),
-
-    //         // * Transform::new_translate(vec3(10.0,10.0,10.0)),
-    //     90.0
-    // );
     let cam = SimpleCamera::new(point3(10.0, 10.0, 10.0), point3(0.0, 0.0, 0.0), 40.0);
 
     let mut world = World::new(objs, cam, 8, 100);
@@ -210,7 +168,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
 
     // Draw the current frame
-    let frame = pixels.get_frame();
     // let chunker = ImageChunker::new(pixels, 1, 2, WIDTH, HEIGHT);
     // let chunks = chunker.request_frame_chunks();
     // let i = current_frame % frame.chunks_exact_mut(4).len();
@@ -222,49 +179,45 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let chunk_size = HEIGHT / 5;
     assert_eq!(HEIGHT % chunk_size, 0);
     println!("Rendering...");
-    frame.par_chunks_exact_mut(4 * chunk_size).enumerate().for_each(|(chunk_idx, chunk)| {
+    frame.chunks_exact_mut(4 * chunk_size).enumerate().for_each(|(chunk_idx, chunk)| {
         let chunk_offset = chunk_size * chunk_idx;
         chunk.chunks_exact_mut(4).enumerate().for_each(|(pixel_idx, pixel)| {
             let i = chunk_offset + pixel_idx;
             let x = i % WIDTH as S;
             let y = i / WIDTH as S;
             let rendered_pixel = world.render_pixel(x, y);
-            pixel[0] = rendered_pixel[0];
-            pixel[1] = rendered_pixel[1];
-            pixel[2] = rendered_pixel[2];
-            pixel[3] = rendered_pixel[3];
+            // pixel[0] = rendered_pixel[0];
+            // pixel[1] = rendered_pixel[1];
+            // pixel[2] = rendered_pixel[2];
+            // pixel[3] = rendered_pixel[3];
+            fb0.seek(std::io::SeekFrom::Start(i as u64 * 4)).unwrap();
+            fb0.write(&rendered_pixel).unwrap();
+            fb0.flush().unwrap();
         });
     });
-    pixels.render()?;
-    println!("Done!");
+    
+    // fb0.write_all(&frame)?;
+    // println!("Done!");
 
-    'game_loop: loop {
-        while let Some(event) = sdl.poll_event() {
-            match event {
-                // Close events
-                Event::Quit { .. } => break 'game_loop,
-                Event::Keyboard { keycode: key, .. } if key == keycode::SDLK_ESCAPE => {
-                    break 'game_loop
-                }
-                Event::Keyboard {
-                    // scancode,
-                    // is_pressed,
-                    ..
-                } => {
-                }
-                _ => (),
-            }
-        }
-
-        
-            
-            // if current_frame % (HEIGHT * 5) as S == 0 {
-                
-            //     println!("Rendered scanline {}/{}", y, HEIGHT);
-            // }
-
-        // current_frame += 1;
-    }
+    // 'game_loop: loop {
+    //     while let Some(event) = sdl.poll_event() {
+    //         match event {
+    //             // Close events
+    //             Event::Quit { .. } => break 'game_loop,
+    //             Event::Keyboard { keycode: key, .. } if key == keycode::SDLK_ESCAPE => {
+    //                 break 'game_loop
+    //             }
+    //             Event::Keyboard {
+    //                 // scancode,
+    //                 // is_pressed,
+    //                 ..
+    //             } => {
+    //             }
+    //             _ => (),
+    //         }
+    //     }
+    // }
+    loop {}
 
     Ok(())
 }
