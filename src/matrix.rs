@@ -14,7 +14,7 @@ use crate::common::*;
 //         }
 //     }
 // }
-pub type Matrix4 = glm::Mat4;
+pub type Matrix4 = nalgebra::Matrix4<F>;
 pub fn matrix4(m: [[F; 4]; 4]) -> Matrix4 {
     glm::mat4(
         m[0][0], m[0][1], m[0][2], m[0][3], m[1][0], m[1][1], m[1][2], m[1][3], m[2][0], m[2][1],

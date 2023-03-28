@@ -1,8 +1,8 @@
-use std::f32::consts::PI;
+use std::f64::consts::PI;
 use std::mem::swap;
 
-pub type F = f32;
-pub type I = i32;
+pub type F = f64;
+pub type I = i64;
 pub type UI = u32;
 pub type S = usize;
 

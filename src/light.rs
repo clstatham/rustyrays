@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, sync::Arc};
+use std::{f64::consts::PI, sync::Arc};
 
 use crate::{
     aabb::AABB3,

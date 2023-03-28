@@ -1,32 +1,32 @@
-use std::f32::consts::PI;
+use std::f64::consts::PI;
 
 use crate::common::F;
-// use std::ops::{Add, Sub, Neg, Index, IndexMut, Div, Mul};
 
 extern crate nalgebra as na;
 extern crate nalgebra_glm as glm;
-pub type Vec3 = glm::Vec3;
-pub type Point3 = glm::Vec3;
-pub type Normal3 = glm::Vec3;
-pub type Vec2 = glm::Vec2;
-pub type Point2 = Vec2;
+pub type Vec3 = na::Vector3<F>;
+pub type Point3 = na::Vector3<F>;
+pub type Normal3 = na::Vector3<F>;
+pub type Vec2 = na::Vector2<F>;
+pub type Point2 = na::Vector2<F>;
 pub type NAPoint3 = na::Point3<F>;
 pub type NAPoint2 = na::Point2<F>;
 
 pub fn vec3(x: F, y: F, z: F) -> Vec3 {
-    glm::vec3(x, y, z)
+    // na::vector![x, y, z]
+    Vec3::new(x, y, z)
 }
 pub fn point3(x: F, y: F, z: F) -> Point3 {
-    glm::vec3(x, y, z)
+    Point3::new(x, y, z)
 }
 pub fn normal3(x: F, y: F, z: F) -> Normal3 {
-    glm::vec3(x, y, z)
+    Normal3::new(x, y, z)
 }
 pub fn point2(x: F, y: F) -> Point2 {
-    glm::vec2(x, y)
+    Point2::new(x, y)
 }
 pub fn vec2(x: F, y: F) -> Vec2 {
-    glm::vec2(x, y)
+    Vec2::new(x, y)
 }
 
 pub fn distance3d(a: &Point3, b: &Point3) -> F {
@@ -35,20 +35,6 @@ pub fn distance3d(a: &Point3, b: &Point3) -> F {
 
 pub fn distance_squared3d(a: &Point3, b: &Point3) -> F {
     (a - b).magnitude_squared()
-}
-
-pub fn to_na_point2(a: Vec2) -> NAPoint2 {
-    na::point![a.x, a.y]
-}
-pub fn from_na_point2(a: NAPoint2) -> Vec2 {
-    vec2(a.x, a.y)
-}
-
-pub fn to_na_point3(a: Vec3) -> NAPoint3 {
-    na::point![a.x, a.y, a.z]
-}
-pub fn from_na_point3(a: NAPoint3) -> Vec3 {
-    vec3(a.x, a.y, a.z)
 }
 
 pub fn spherical_theta(v: &Vec3) -> F {

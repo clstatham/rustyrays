@@ -235,7 +235,8 @@ impl Transform {
 
     /// IMPORTANT: Only use for Points!
     pub fn forward_point_transform(self, a: Point3) -> Point3 {
-        from_na_point3(self.m_forward.transform_point(&to_na_point3(a)))
+        let pt = self.m_forward.transform_point(&nalgebra::Point3::new(a.x, a.y, a.z));
+        Point3::new(pt.x, pt.y, pt.z)
     }
     /// IMPORTANT: Only use for Points!
     pub fn fpt(self, a: Point3) -> Point3 {
@@ -243,7 +244,8 @@ impl Transform {
     }
     /// IMPORTANT: Only use for Points!
     pub fn inverse_point_transform(self, a: Point3) -> Point3 {
-        from_na_point3(self.m_inverse.transform_point(&to_na_point3(a)))
+        let pt = self.m_inverse.transform_point(&nalgebra::Point3::new(a.x, a.y, a.z));
+        Point3::new(pt.x, pt.y, pt.z)
     }
     /// IMPORTANT: Only use for Points!
     pub fn ipt(self, a: Point3) -> Point3 {
