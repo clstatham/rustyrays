@@ -10,11 +10,11 @@ pub fn black() -> Color3 {
     color3(0.0, 0.0, 0.0)
 }
 
-pub fn color_to_pixel(col: Color3) -> [u8; 4] {
+pub fn color_to_pixel(col: Color3, gamma: F) -> [u8; 4] {
     [
-        (col.x.sqrt().clamp(0.0, 0.9999) * 255.0) as u8,
-        (col.y.sqrt().clamp(0.0, 0.9999) * 255.0) as u8,
-        (col.z.sqrt().clamp(0.0, 0.9999) * 255.0) as u8,
+        (col.z.powf(gamma).clamp(0.0, 0.9999) * 255.0) as u8,
+        (col.y.powf(gamma).clamp(0.0, 0.9999) * 255.0) as u8,
+        (col.x.powf(gamma).clamp(0.0, 0.9999) * 255.0) as u8,
         255,
     ]
 }

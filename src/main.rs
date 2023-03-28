@@ -73,7 +73,7 @@ impl World {
         self.integrator.preprocess(&self.scene, &self.cam);
     }
 
-    pub fn render_pixel(&self, x: S, y: S) -> [u8; 4] {
+    pub fn render_pixel(&self, x: S, y: S, gamma: F) -> [u8; 4] {
         // if x == WIDTH/2 && y == HEIGHT/2 {
         //     println!("At Center");
         // }
@@ -87,7 +87,7 @@ impl World {
             out_col += col / self.samples_per_pixel as F;
         }
 
-        color_to_pixel(out_col)
+        color_to_pixel(out_col, gamma)
         // let out_idx = xy.y as S * WIDTH as S + xy.x as S;
         // let out_idx = pixel_idx;
     }
@@ -185,7 +185,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let i = chunk_offset + pixel_idx;
             let x = i % WIDTH as S;
             let y = i / WIDTH as S;
-            let rendered_pixel = world.render_pixel(x, y);
+            let rendered_pixel = world.render_pixel(x, y, 0.30);
             // pixel[0] = rendered_pixel[0];
             // pixel[1] = rendered_pixel[1];
             // pixel[2] = rendered_pixel[2];
