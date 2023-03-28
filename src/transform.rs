@@ -7,8 +7,8 @@ use glm::rotation;
 
 use crate::aabb::AABB3;
 use crate::common::*;
-use crate::interaction::Shading;
 use crate::interaction::Interaction;
+use crate::interaction::Shading;
 use crate::matrix::*;
 use crate::ray::Ray;
 use crate::vector::*;
@@ -235,7 +235,9 @@ impl Transform {
 
     /// IMPORTANT: Only use for Points!
     pub fn forward_point_transform(self, a: Point3) -> Point3 {
-        let pt = self.m_forward.transform_point(&nalgebra::Point3::new(a.x, a.y, a.z));
+        let pt = self
+            .m_forward
+            .transform_point(&nalgebra::Point3::new(a.x, a.y, a.z));
         Point3::new(pt.x, pt.y, pt.z)
     }
     /// IMPORTANT: Only use for Points!
@@ -244,7 +246,9 @@ impl Transform {
     }
     /// IMPORTANT: Only use for Points!
     pub fn inverse_point_transform(self, a: Point3) -> Point3 {
-        let pt = self.m_inverse.transform_point(&nalgebra::Point3::new(a.x, a.y, a.z));
+        let pt = self
+            .m_inverse
+            .transform_point(&nalgebra::Point3::new(a.x, a.y, a.z));
         Point3::new(pt.x, pt.y, pt.z)
     }
     /// IMPORTANT: Only use for Points!
@@ -363,10 +367,7 @@ impl Transform {
         self.inverse_aabb_transform(a)
     }
 
-    pub fn forward_surface_interaction_transform(
-        self,
-        a: Interaction,
-    ) -> Interaction {
+    pub fn forward_surface_interaction_transform(self, a: Interaction) -> Interaction {
         let dpdu;
         let dpdv;
         let n;

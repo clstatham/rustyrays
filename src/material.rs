@@ -1,11 +1,10 @@
-use std::f64::consts::PI;
 use std::sync::Arc;
 
 use crate::color::{black, Color3};
 use crate::common::*;
+use crate::distributions::Distribution1D;
 use crate::interaction::Interaction;
 use crate::ray::Ray;
-use crate::distributions::Distribution1D;
 use crate::texture::{ColorTexture, ScalarTexture};
 use crate::vector::*;
 

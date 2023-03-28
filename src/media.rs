@@ -1,6 +1,12 @@
-use std::{f64::consts::PI, sync::Arc};
+use std::sync::Arc;
 
-use crate::{vector::*, common::F, ray::Ray, rng::RngGen, color::Color3};
+use crate::{
+    color::Color3,
+    common::{F, PI},
+    ray::Ray,
+    rng::RngGen,
+    vector::*,
+};
 
 pub trait PhaseFunction {
     fn p(&self, wo: &Vec3, wi: &Vec3) -> F;
@@ -8,8 +14,8 @@ pub trait PhaseFunction {
 }
 
 pub fn phase_hg(cos_theta: F, g: F) -> F {
-    let denom = 1.0 + g*g + 2.0*g*cos_theta;
-    (1.0 / (4.0 * PI)) * (1.0 - g*g) / (denom * denom.sqrt())
+    let denom = 1.0 + g * g + 2.0 * g * cos_theta;
+    (1.0 / (4.0 * PI)) * (1.0 - g * g) / (denom * denom.sqrt())
 }
 
 pub struct HenyeyGreenstein {
@@ -51,7 +57,7 @@ impl MediumInterface {
         }
     }
 
-    // pub fn is_transition(&self) -> bool { 
+    // pub fn is_transition(&self) -> bool {
     //     if let Some(ref inside) = self.inside {
     //         if let Some(ref outside) = self.outside {
     //             !Arc::ptr_eq(inside, outside)
@@ -63,5 +69,5 @@ impl MediumInterface {
 
 pub trait Medium {
     fn transmittance(&self, ray: &Ray, rng: &RngGen) -> Color3;
-    // fn sample(&self, ray: &ray, rng: &RngGen) -> 
+    // fn sample(&self, ray: &ray, rng: &RngGen) ->
 }

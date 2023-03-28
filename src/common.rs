@@ -1,9 +1,10 @@
-use std::f64::consts::PI;
 use std::mem::swap;
 
-pub type F = f64;
+
+pub type F = f32;
+pub const PI: F = std::f32::consts::PI;
 pub type I = i64;
-pub type UI = u32;
+pub type UI = u64;
 pub type S = usize;
 
 pub const EPSILON: F = 1e-10;

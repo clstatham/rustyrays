@@ -1,6 +1,4 @@
-use std::f64::consts::PI;
-
-use crate::common::F;
+use crate::common::{F, PI};
 
 extern crate nalgebra as na;
 extern crate nalgebra_glm as glm;

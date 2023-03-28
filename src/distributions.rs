@@ -1,5 +1,3 @@
-use std::f64::consts::PI;
-
 use crate::{
     common::*,
     vector::{point2, vec3, Point2, Vec3},

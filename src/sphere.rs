@@ -1,11 +1,9 @@
-use std::f64::consts::PI;
-
 use crate::aabb::AABB3;
 use crate::common::*;
+use crate::distributions::Distribution1D;
 use crate::interaction::Interaction;
 use crate::media::MediumInterface;
 use crate::ray::Ray;
-use crate::distributions::Distribution1D;
 use crate::shape::*;
 use crate::transform::Transform;
 use crate::vector::*;
@@ -20,7 +18,12 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    pub fn new(reverse_orientation: bool, radius: F, object_to_world: Transform, medium_interface: MediumInterface) -> Self {
+    pub fn new(
+        reverse_orientation: bool,
+        radius: F,
+        object_to_world: Transform,
+        medium_interface: MediumInterface,
+    ) -> Self {
         Self {
             shape_data: ShapeData {
                 reverse_orientation,

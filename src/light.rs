@@ -1,12 +1,12 @@
-use std::{f64::consts::PI, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
     aabb::AABB3,
     color::{black, color3, Color3},
-    common::{F, S},
+    common::{F, PI, S},
+    distributions::Distribution2D,
     interaction::Interaction,
     ray::Ray,
-    distributions::Distribution2D,
     scene::Scene,
     transform::Transform,
     vector::{point2, point3, spherical_phi, spherical_theta, vec3, Point2, Point3, Vec3},

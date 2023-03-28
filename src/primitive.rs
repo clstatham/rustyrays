@@ -82,11 +82,7 @@ impl Shape for Primitive {
         self.shape.sample_u(u)
     }
 
-    fn sample_inter(
-        &self,
-        inter: &Interaction,
-        u: &crate::vector::Point2,
-    ) -> Interaction {
+    fn sample_inter(&self, inter: &Interaction, u: &crate::vector::Point2) -> Interaction {
         self.shape.sample_inter(inter, u)
     }
 }

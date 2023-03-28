@@ -12,7 +12,6 @@ pub struct Ray {
     pub time: F,
 
     // pub medium: Option<Arc<dyn Medium>>,
-
     pub has_differentials: bool,
     pub rx_origin: Option<Point3>,
     pub ry_origin: Option<Point3>,
